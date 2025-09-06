@@ -31,6 +31,9 @@ class SchedulingPolicy(Enum):
     LRU_PLUS = "lru_plus"
     ADAKV = "adakv"
     DUOATTENTION = "duoattention"
+    BELADY_APPROX = "belady_approx"
+    HAZARD_LRU = "hazard_lru"
+    TWO_QUEUE = "two_queue"
 
 class BaseScheduler(nn.Module):
     """基础缓存调度器"""
@@ -85,8 +88,8 @@ class BaseScheduler(nn.Module):
     def get_scheduler_stats(self) -> Dict[str, float]:
         """获取调度器统计信息"""
         return {
-            "hit_rate": self.get_hit_rate().item(),
-            "eviction_rate": self.get_eviction_rate().item(),
+            "hit_rate": float(self.get_hit_rate()),
+            "eviction_rate": float(self.get_eviction_rate()),
             "total_hits": self.hit_count.item(),
             "total_misses": self.miss_count.item(),
             "total_evictions": self.eviction_count.item(),
@@ -241,8 +244,8 @@ class StreamingLLMScheduler(BaseScheduler):
                 new_size = max(1, int(self.optimal_window_size * 0.95))
             
             # 平滑更新
-            self.optimal_window_size = int(0.9 * self.optimal_window_size + 0.1 * new_size)
-            self.recent_size = self.optimal_window_size.item()
+            self.optimal_window_size = int(0.9 * int(self.optimal_window_size) + 0.1 * int(new_size))
+            self.recent_size = int(self.optimal_window_size)
     
     def update_window_utilization(self, utilization: float):
         """更新窗口利用率"""
@@ -284,7 +287,7 @@ class StreamingLLMScheduler(BaseScheduler):
         stats = super().get_scheduler_stats()
         
         # 计算平均窗口利用率
-        valid_entries = min(self.window_idx.item(), 100)
+        valid_entries = min(int(self.window_idx.item()), 100)
         avg_utilization = 0.0
         if valid_entries > 0:
             avg_utilization = self.window_utilization[:valid_entries].mean().item()
@@ -293,13 +296,13 @@ class StreamingLLMScheduler(BaseScheduler):
             "start_size": self.start_size,
             "recent_size": self.recent_size,
             "recent_ratio": self.recent_ratio,
-            "position_counter": self.position_counter.item(),
+            "position_counter": int(self.position_counter),
             "avg_window_utilization": avg_utilization,
             "adaptive_window": self.adaptive_window
         })
         
         if self.adaptive_window:
-            stats["optimal_window_size"] = self.optimal_window_size.item()
+            stats["optimal_window_size"] = int(self.optimal_window_size)
         
         return stats
 
@@ -661,7 +664,7 @@ class AdaKVScheduler(BaseScheduler):
         evict_mask = torch.ones(cache_len, dtype=torch.bool, device=keys.device)
         evict_mask[all_keep] = False
 
-        self.update_stats(eviction=evict_mask.any().item())
+        self.update_stats(eviction=bool(evict_mask.any().item()))
         return evict_mask
 
     def get_scheduler_stats(self) -> Dict[str, float]:
@@ -698,7 +701,7 @@ class DuoAttentionScheduler(BaseScheduler):
         # 保留 recent tokens
         evict_mask[-self.recent_size:] = False
 
-        self.update_stats(eviction=evict_mask.any().item())
+        self.update_stats(eviction=bool(evict_mask.any().item()))
         return evict_mask
 
     def get_scheduler_stats(self) -> Dict[str, float]:
@@ -758,6 +761,18 @@ class CacheSchedulingManager(nn.Module):
         elif policy == SchedulingPolicy.DUOATTENTION:
             return DuoAttentionScheduler(self.cache_size, self.hidden_size,
                                         sink_size=64, recent_size=512)
+        elif policy == SchedulingPolicy.BELADY_APPROX:
+            from ..schedulers.belady_approx import BeladyApproxScheduler
+            return BeladyApproxScheduler(self.cache_size, self.hidden_size,
+                                         alpha=0.6, pos_decay=0.97)
+        elif policy == SchedulingPolicy.HAZARD_LRU:
+            from ..schedulers.hazard_lru import HazardLRUScheduler
+            return HazardLRUScheduler(self.cache_size, self.hidden_size,
+                                      alpha=0.5, beta=0.3, gamma=0.2)
+        elif policy == SchedulingPolicy.TWO_QUEUE:
+            from ..schedulers.two_queue import TwoQueueScheduler
+            return TwoQueueScheduler(self.cache_size, self.hidden_size,
+                                     admission_tau=0.5, demote_cooldown=16, cpu_ratio=0.5)
         else:
             return None
     
@@ -769,14 +784,7 @@ class CacheSchedulingManager(nn.Module):
         if metadata is None:
             metadata = {}
         
-        if hasattr(self.scheduler, 'update_importance'):
-            self.scheduler.update_importance(torch.tensor([idx]), key.unsqueeze(0))
-
-        if hasattr(self.scheduler, 'update_access_info'):
-            importance = metadata.get('importance', torch.tensor([0.5]))
-            if importance.dim() == 0:
-                importance = importance.unsqueeze(0)
-            self.scheduler.update_access_info(torch.tensor([idx]), importance)
+        # remove invalid pre-loop references to idx/key; handled inside per-item loop
 
         
         # 确保输入在正确设备上
@@ -818,17 +826,17 @@ class CacheSchedulingManager(nn.Module):
                                 self.cache_valid.zero_()
                                 self.cache_size_current = 0
                             
-                            self.total_evictions += evict_mask.sum()
+                            self.total_evictions += int(evict_mask.sum().item())
                     else:
                         # 简单FIFO淘汰
-                        if self.cache_size_current > 0:
+                        if int(self.cache_size_current.item()) > 0:
                             self.cache_keys[:-1] = self.cache_keys[1:self.cache_size_current]
                             self.cache_values[:-1] = self.cache_values[1:self.cache_size_current]
-                            self.cache_size_current -= 1
+                            self.cache_size_current = int(self.cache_size_current.item()) - 1
                 
                 # 添加新项
-                if self.cache_size_current < self.cache_size:
-                    idx = self.cache_size_current.item()
+                if int(self.cache_size_current.item()) < int(self.cache_size):
+                    idx = int(self.cache_size_current.item())
                     self.cache_keys[idx] = key
                     self.cache_values[idx] = value
                     self.cache_valid[idx] = True
@@ -837,25 +845,25 @@ class CacheSchedulingManager(nn.Module):
                     # 更新调度器特定信息
                     if self.scheduler is not None:
                         if hasattr(self.scheduler, 'update_access_time'):
-                            self.scheduler.update_access_time(torch.tensor([idx]))
+                            self.scheduler.update_access_time(torch.tensor([idx], device=self.cache_keys.device))
                         elif hasattr(self.scheduler, 'update_access_info'):
-                            importance = metadata.get('importance', torch.tensor([0.5]))
+                            importance = metadata.get('importance', torch.tensor([0.5], device=self.cache_keys.device))
                             if importance.dim() == 0:
                                 importance = importance.unsqueeze(0)
-                            self.scheduler.update_access_info(torch.tensor([idx]), importance)
+                            self.scheduler.update_access_info(torch.tensor([idx], device=self.cache_keys.device), importance)
         
         self.total_updates += batch_size * seq_len
     
     def get_cache_stats(self) -> Dict[str, float]:
         """获取缓存统计信息"""
         stats = {
-            "cache_utilization": self.cache_size_current.float() / self.cache_size,
+            "cache_utilization": float(self.cache_size_current) / float(self.cache_size),
             "policy": self.current_policy.value,
             "total_updates": self.total_updates.item(),
             "total_evictions": self.total_evictions.item(),
             "policy_switches": self.policy_switches.item(),
-            "cache_size": self.cache_size,
-            "current_size": self.cache_size_current.item()
+            "cache_size": int(self.cache_size),
+            "current_size": int(self.cache_size_current.item())
         }
         
         # 添加调度器特定统计信息
@@ -870,7 +878,7 @@ class CacheSchedulingManager(nn.Module):
         self.cache_keys.zero_()
         self.cache_values.zero_()
         self.cache_valid.zero_()
-        self.cache_size_current.zero_()
+        self.cache_size_current = torch.tensor(0, device=self.cache_size_current.device)
         
         if self.scheduler is not None:
             self.scheduler.reset_stats()
