@@ -14,6 +14,9 @@
 
 </div>
 
+- 🔥🔥🔥 09/06/2025 PiKV now supports SinkhornRouter, PERouter (Predictive-Entropy), and BARouter (Budget-Aware).
+- 🔥🔥🔥 09/02/2025 PiKV now supports Belady-Approx scheduling (predictive next-use eviction) and Hazard-LRU scheduling (risk-based age/sim/uncertainty eviction).
+- 🔥🔥🔥 08/25/2025 PiKV now supports Two-Queue hierarchical cache with admission control.
 - 🔥🔥🔥 08/17/2025 PiKV now supports FastMoE and FasterMoE.
 - 🔥🔥🔥 08/10/2025 PiKV now supports FlexMoE and TimeMoE.
 - 🔥🔥🔥 07/01/2025 PiKV can be integrated with NVIDIA kvxpress for acceleration! Details check [PiKVpress](https://github.com/NoakLiu/PiKVpress).
