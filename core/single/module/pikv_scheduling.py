@@ -820,11 +820,11 @@ class CacheSchedulingManager(nn.Module):
                                 self.cache_values[:num_keep] = self.cache_values[:self.cache_size_current][keep_mask]
                                 self.cache_valid[:num_keep] = True
                                 self.cache_valid[num_keep:] = False
-                                self.cache_size_current = num_keep
+                                self.cache_size_current = torch.tensor(num_keep, device=self.cache_keys.device)
                             else:
                                 # 全部淘汰
                                 self.cache_valid.zero_()
-                                self.cache_size_current = 0
+                                self.cache_size_current = torch.tensor(0, device=self.cache_keys.device)
                             
                             self.total_evictions += int(evict_mask.sum().item())
                     else:
@@ -832,15 +832,17 @@ class CacheSchedulingManager(nn.Module):
                         if int(self.cache_size_current.item()) > 0:
                             self.cache_keys[:-1] = self.cache_keys[1:self.cache_size_current]
                             self.cache_values[:-1] = self.cache_values[1:self.cache_size_current]
-                            self.cache_size_current = int(self.cache_size_current.item()) - 1
+                            new_size = int(self.cache_size_current.item()) - 1
+                            self.cache_size_current = torch.tensor(new_size, device=self.cache_keys.device)
                 
                 # 添加新项
-                if int(self.cache_size_current.item()) < int(self.cache_size):
-                    idx = int(self.cache_size_current.item())
+                cur_size = int(self.cache_size_current.item())
+                if cur_size < int(self.cache_size):
+                    idx = cur_size
                     self.cache_keys[idx] = key
                     self.cache_values[idx] = value
                     self.cache_valid[idx] = True
-                    self.cache_size_current += 1
+                    self.cache_size_current = torch.tensor(cur_size + 1, device=self.cache_keys.device)
                     
                     # 更新调度器特定信息
                     if self.scheduler is not None:
@@ -857,7 +859,7 @@ class CacheSchedulingManager(nn.Module):
     def get_cache_stats(self) -> Dict[str, float]:
         """获取缓存统计信息"""
         stats = {
-            "cache_utilization": float(self.cache_size_current) / float(self.cache_size),
+            "cache_utilization": float(int(self.cache_size_current.item())) / float(int(self.cache_size)),
             "policy": self.current_policy.value,
             "total_updates": self.total_updates.item(),
             "total_evictions": self.total_evictions.item(),
@@ -878,7 +880,7 @@ class CacheSchedulingManager(nn.Module):
         self.cache_keys.zero_()
         self.cache_values.zero_()
         self.cache_valid.zero_()
-        self.cache_size_current = torch.tensor(0, device=self.cache_size_current.device)
+        self.cache_size_current = torch.tensor(0, device=self.cache_keys.device)
         
         if self.scheduler is not None:
             self.scheduler.reset_stats()
