@@ -390,6 +390,196 @@ class HierarchicalRouter(BaseRouter):
         return load_balance_loss + 0.1 * hierarchy_loss
 
 
+class SinkhornRouter(BaseRouter):
+    """Sinkhorn/OT load-balanced router.
+    Approximates a doubly-stochastic assignment via Sinkhorn iterations on routing
+    scores, then performs top-k rounding. Adds OT-style balance regularization.
+    """
+    def __init__(
+        self,
+        hidden_size: int,
+        num_experts: int,
+        top_k: int = 2,
+        capacity_factor: float = 1.25,
+        sinkhorn_iters: int = 10,
+        tau: float = 1.0,
+        tau_anneal: float = 0.0,
+    ):
+        super().__init__(hidden_size, num_experts, top_k)
+        self.capacity_factor = capacity_factor
+        self.sinkhorn_iters = sinkhorn_iters
+        self.register_buffer("tau", torch.tensor(float(tau)))
+        self.tau_anneal = float(tau_anneal)
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, float]:
+        batch_size, seq_len, _ = x.shape
+        x_norm = self.router_norm(x)
+
+        logits = self.router(x_norm) / torch.clamp(self.tau, min=1e-6)
+        scores = torch.exp(logits - logits.max(dim=-1, keepdim=True).values)
+
+        # Sinkhorn normalization to near doubly-stochastic per (batch, seq_len)
+        # scores: [B, T, E] → normalize rows (tokens) and columns (experts)
+        assign = scores
+        # Target marginals
+        row_target = torch.ones(batch_size, seq_len, device=x.device)
+        total_tokens = float(batch_size * seq_len)
+        expert_capacity = self.capacity_factor * total_tokens / float(self.num_experts)
+        col_target = torch.full((batch_size, self.num_experts), expert_capacity, device=x.device)
+
+        for _ in range(self.sinkhorn_iters):
+            # Row normalization
+            row_sum = assign.sum(dim=-1, keepdim=True) + 1e-9
+            assign = assign / row_sum
+            # Column normalization (per batch)
+            col_sum = assign.sum(dim=1, keepdim=True) + 1e-9  # [B,1,E]
+            assign = assign / col_sum * (expert_capacity)
+
+        # Convert assignment to probabilities per token
+        router_probs = assign / (assign.sum(dim=-1, keepdim=True) + 1e-9)
+
+        top_k_probs, top_k_indices = torch.topk(router_probs, k=self.top_k, dim=-1)
+        top_k_probs = top_k_probs / (top_k_probs.sum(dim=-1, keepdim=True) + 1e-9)
+
+        # OT balance regularization
+        row_sum_final = assign.sum(dim=-1)  # [B,T]
+        col_sum_final = assign.sum(dim=1)   # [B,E]
+        l_row = torch.mean((row_sum_final - 1.0) ** 2)
+        l_col = torch.mean((col_sum_final - expert_capacity) ** 2)
+        aux_loss = l_row + l_col
+
+        # Temperature annealing
+        if self.training and self.tau_anneal > 0.0:
+            self.tau.data = torch.clamp(self.tau.data - self.tau_anneal, min=0.1)
+
+        return top_k_indices, top_k_probs, float(aux_loss.item())
+
+
+class PERouter(BaseRouter):
+    """Uncertainty-aware router (Predictive Entropy / Gradient Norm proxy).
+    Adjusts effective top_k and capacity factor based on token uncertainty.
+    """
+    def __init__(
+        self,
+        hidden_size: int,
+        num_experts: int,
+        top_k: int = 2,
+        uncertainty_metric: str = "attn_entropy",
+        min_k: int = 1,
+        max_k: int = 4,
+        base_capacity_factor: float = 1.0,
+    ):
+        super().__init__(hidden_size, num_experts, top_k)
+        self.uncertainty_metric = uncertainty_metric
+        self.min_k = int(min_k)
+        self.max_k = int(max_k)
+        self.base_capacity_factor = float(base_capacity_factor)
+        # lightweight self-attn to approximate predictive distribution for entropy
+        self._attn = nn.MultiheadAttention(hidden_size, num_heads=4, batch_first=True)
+
+    def _predictive_entropy(self, x: torch.Tensor) -> torch.Tensor:
+        attn_out, attn_w = self._attn(x, x, x)  # attn_w: [B, H, T, T]
+        p = attn_w.mean(dim=1)  # [B, T, T]
+        p = p / (p.sum(dim=-1, keepdim=True) + 1e-9)
+        entropy = -torch.sum(p * torch.log(p + 1e-9), dim=-1)  # [B,T]
+        return entropy
+
+    def _grad_norm_proxy(self, x: torch.Tensor) -> torch.Tensor:
+        # Proxy: local variance magnitude as uncertainty estimate
+        var = torch.mean((x - x.mean(dim=-1, keepdim=True)) ** 2, dim=-1)  # [B,T]
+        return var
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, float]:
+        batch_size, seq_len, _ = x.shape
+        x_norm = self.router_norm(x)
+
+        logits = self.router(x_norm)
+        probs = F.softmax(logits, dim=-1)
+
+        # Compute uncertainty per token
+        if self.uncertainty_metric == "attn_entropy":
+            unc = self._predictive_entropy(x_norm)
+        elif self.uncertainty_metric == "grad_norm":
+            unc = self._grad_norm_proxy(x_norm)
+        else:
+            unc = torch.zeros(batch_size, seq_len, device=x.device)
+
+        # Normalize uncertainty to [0,1]
+        unc_norm = (unc - unc.min()) / (unc.max() - unc.min() + 1e-9)
+        # Map to per-token k in [min_k, max_k]
+        k_real = self.min_k + (self.max_k - self.min_k) * unc_norm  # [B,T]
+        k_used = torch.clamp(k_real.round().long(), min=self.min_k, max=self.max_k)
+
+        # Use maximum k for a single topk op, then mask by token-specific k
+        k_global = int(self.max_k)
+        top_probs_all, top_idx_all = torch.topk(probs, k=k_global, dim=-1)
+        # Build masks per token
+        arange_k = torch.arange(k_global, device=x.device).view(1, 1, k_global)
+        k_expanded = k_used.unsqueeze(-1)
+        mask = (arange_k < k_expanded).float()
+        top_k_probs = top_probs_all * mask
+        # Renormalize
+        top_k_probs = top_k_probs / (top_k_probs.sum(dim=-1, keepdim=True) + 1e-9)
+        top_k_indices = top_idx_all
+
+        # Simple aux: encourage low-uncertainty tokens to use smaller k
+        aux_loss = torch.mean((k_real / float(self.max_k)) ** 2)
+
+        return top_k_indices, top_k_probs, float(aux_loss.item())
+
+
+class BARouter(BaseRouter):
+    """Budget-Aware Router.
+    Given memory/latency budgets, greedily selects experts by gain/cost.
+    Provides set_budget(mem=..., latency=...) API. Costs are simple proxies.
+    """
+    def __init__(
+        self,
+        hidden_size: int,
+        num_experts: int,
+        top_k: int = 2,
+        mem_budget: Optional[float] = None,
+        latency_budget_ms: Optional[float] = None,
+        cost_per_expert_mem: float = 1.0,
+        cost_per_expert_latency: float = 1.0,
+    ):
+        super().__init__(hidden_size, num_experts, top_k)
+        self.mem_budget = mem_budget
+        self.latency_budget_ms = latency_budget_ms
+        self.cost_per_expert_mem = float(cost_per_expert_mem)
+        self.cost_per_expert_latency = float(cost_per_expert_latency)
+
+    def set_budget(self, mem: Optional[float] = None, latency: Optional[float] = None):
+        if mem is not None:
+            self.mem_budget = float(mem)
+        if latency is not None:
+            self.latency_budget_ms = float(latency)
+
+    def _budget_to_k(self) -> int:
+        # Map budgets to an effective k; simplistic proxy
+        k = self.top_k
+        if self.mem_budget is not None:
+            k = min(self.num_experts, max(1, int(self.mem_budget / max(self.cost_per_expert_mem, 1e-6))))
+        if self.latency_budget_ms is not None:
+            k_latency = min(self.num_experts, max(1, int(self.latency_budget_ms / max(self.cost_per_expert_latency, 1e-6))))
+            k = min(k, k_latency)
+        return max(1, int(k))
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, float]:
+        x_norm = self.router_norm(x)
+        logits = self.router(x_norm)
+        probs = F.softmax(logits, dim=-1)
+
+        # Determine effective k from budgets
+        eff_k = self._budget_to_k()
+        top_k_probs, top_k_indices = torch.topk(probs, k=eff_k, dim=-1)
+        top_k_probs = top_k_probs / (top_k_probs.sum(dim=-1, keepdim=True) + 1e-9)
+
+        # Aux: encourage staying within budget via small k
+        aux_loss = torch.tensor(float(eff_k) / float(self.num_experts), device=x.device)
+        return top_k_indices, top_k_probs, float(aux_loss.item())
+
+
 class FlexMoERouter(BaseRouter):
     """Flex-MoE Router for multimodal learning"""
     
@@ -599,7 +789,10 @@ class MoE(nn.Module):
             "flex": FlexMoERouter,
             "time": TimeMoERouter,
             "fastmoe": FastMoERouter,
-            "fastermoe": FasterMoERouter
+            "fastermoe": FasterMoERouter,
+            "sinkhorn": SinkhornRouter,
+            "pe": PERouter,
+            "budget": BARouter
         }
         
         if router_type not in router_map:
@@ -672,7 +865,7 @@ class PiKVMoE(MoE):
             distillation_loss = F.mse_loss(student_proj, teacher_proj.detach())
             aux_loss = aux_loss + self.distillation_loss_weight * distillation_loss
         
-        return output, aux_loss
+        return output, float(aux_loss)
 
 
 def create_moe(hidden_size: int = 512, num_experts: int = 8, expert_size: Optional[int] = None,
