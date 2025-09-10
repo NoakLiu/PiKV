@@ -245,6 +245,7 @@ def example_4_combined_optimizations():
         enable_dynamic_balancing=True,
         enable_async_execution=True,
         enable_communication_optimization=True,
+        enable_smartmoe=True,
         world_size=4
     )
     
@@ -252,6 +253,7 @@ def example_4_combined_optimizations():
     print(f"  - Dynamic Load Balancing: {model.enable_dynamic_balancing}")
     print(f"  - Async Execution: {model.enable_async_execution}")
     print(f"  - Communication Optimization: {model.enable_communication_optimization}")
+    print(f"  - SmartMoE Integration: {model.enable_smartmoe}")
     
     # Simulate complex training scenario
     batch_size, seq_len = 16, 64
