@@ -14,7 +14,8 @@
 
 </div>
 
-- 🔥🔥🔥 09/09/2025 PiKV released EPiKV-MoE which supports Dynamic Load-Balancer, Asynchoronous Execution Manager and Communication-Aware Expert Routing.
+- 🔥🔥🔥 09/10/2025 PiKV now supports SmartMoE.
+- 🔥🔥🔥 09/09/2025 PiKV released EPiKV-MoE which supports Dynamic Load-Balancer, Asynchoronous Execution Manager, Communication-Aware Expert Routing.
 - 🔥🔥🔥 09/06/2025 PiKV now supports SinkhornRouter, PERouter (Predictive-Entropy), and BARouter (Budget-Aware).
 - 🔥🔥🔥 09/02/2025 PiKV now supports Belady-Approx scheduling (predictive next-use eviction) and Hazard-LRU scheduling (risk-based age/sim/uncertainty eviction).
 - 🔥🔥🔥 08/25/2025 PiKV now supports Two-Queue hierarchical cache with admission control.
@@ -60,7 +61,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 - **Efficiency**: Multi-strategy compression (Pyramid, SVD, Quantization, LoRA)
 - **Flexibility**: Dynamic cache scheduling with 7+ policies
 - **Learning**: State-of-the-art knowledge distillation techniques
-- **Advanced MoE**: Enhanced mixture-of-experts with normalization, LoRA, EPLB, and hierarchical routing
+- **Advanced MoE**: EPiKV-MoE, EPLB, hierarchical routing, Faster-MoE, Smart-MoE, etc
 
 ## Key Features
 
@@ -183,6 +184,7 @@ PiKV employs sophisticated routing mechanisms with advanced features:
 - **Time-MoE Router**: Time series prediction with temporal awareness
 - **FastMoE Router**: High-performance MoE with dynamic shadowing and smart scheduling
 - **FasterMoE Router**: Optimized MoE with hierarchical intelligent routing and performance tracking
+- **SmartMoE Router**: Automatic parallelization with offline/online optimization (USENIX ATC 2023)
 
 ### PiKV MoE Architecture
 
