@@ -18,6 +18,7 @@ from .lora import LoRALayer, LoRAExpert, LoRAKVCache
 from .distillation import PiKVDistillation, create_teacher_model, distillation_training_step
 from .shared import ExternalMemoryCache
 from .cache_scheduling import CacheSchedulingManager, SchedulingPolicy
+from .smartmoe import SmartMoE, create_smartmoe
 
 
 class DynamicLoadBalancer:
@@ -395,7 +396,7 @@ class EnhancedPiKVMoE(nn.Module):
     def __init__(self, rank=4, alpha=1.0, use_distillation=False, teacher_hidden_size=None,
                  use_cache_scheduling=False, cache_scheduling_policy=SchedulingPolicy.NONE,
                  enable_dynamic_balancing=True, enable_async_execution=True, 
-                 enable_communication_optimization=True, world_size=1):
+                 enable_communication_optimization=True, enable_smartmoe=True, world_size=1):
         super(EnhancedPiKVMoE, self).__init__()
         
         self.use_distillation = use_distillation
@@ -407,6 +408,7 @@ class EnhancedPiKVMoE(nn.Module):
         self.enable_dynamic_balancing = enable_dynamic_balancing
         self.enable_async_execution = enable_async_execution
         self.enable_communication_optimization = enable_communication_optimization
+        self.enable_smartmoe = enable_smartmoe
         
         # Add embedding layer
         self.embedding = nn.Embedding(config['vocab_size'], config['hidden_size'])
@@ -449,6 +451,16 @@ class EnhancedPiKVMoE(nn.Module):
             self.communication_placer = CommunicationAwarePlacer(
                 num_experts=config['num_experts'],
                 world_size=world_size
+            )
+        
+        # Initialize SmartMoE
+        if self.enable_smartmoe:
+            self.smartmoe = create_smartmoe(
+                hidden_size=config['hidden_size'],
+                num_experts=config['num_experts'],
+                world_size=world_size,
+                enable_offline_optimization=True,
+                enable_online_adaptation=True
             )
         
         # Query-aware KV cache selection with LoRA
@@ -499,6 +511,7 @@ class EnhancedPiKVMoE(nn.Module):
         print(f"  - Dynamic Load Balancing: {self.enable_dynamic_balancing}")
         print(f"  - Async Execution: {self.enable_async_execution}")
         print(f"  - Communication Optimization: {self.enable_communication_optimization}")
+        print(f"  - SmartMoE Integration: {self.enable_smartmoe}")
     
     def pyramidal_cache_allocation(self):
         """Calculate cache sizes using pyramidal allocation"""
@@ -683,6 +696,10 @@ class EnhancedPiKVMoE(nn.Module):
                 'communication_costs': dict(self.communication_placer.communication_costs)
             }
         
+        if self.enable_smartmoe:
+            smartmoe_metrics = self.smartmoe.get_performance_metrics()
+            metrics['smartmoe'] = smartmoe_metrics
+        
         return metrics
 
 
@@ -697,6 +714,7 @@ def create_enhanced_pikv_moe(
     enable_dynamic_balancing=True,
     enable_async_execution=True,
     enable_communication_optimization=True,
+    enable_smartmoe=True,
     world_size=1
 ) -> EnhancedPiKVMoE:
     """
@@ -712,6 +730,7 @@ def create_enhanced_pikv_moe(
         enable_dynamic_balancing: Enable dynamic load balancing
         enable_async_execution: Enable async execution mode
         enable_communication_optimization: Enable communication optimization
+        enable_smartmoe: Enable SmartMoE integration
         world_size: Number of distributed processes
     
     Returns:
@@ -727,5 +746,6 @@ def create_enhanced_pikv_moe(
         enable_dynamic_balancing=enable_dynamic_balancing,
         enable_async_execution=enable_async_execution,
         enable_communication_optimization=enable_communication_optimization,
+        enable_smartmoe=enable_smartmoe,
         world_size=world_size
     )
