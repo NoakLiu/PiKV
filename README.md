@@ -10,10 +10,11 @@
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-[Features](#-key-features) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
+[Features](#-key-features) • [EPiKV-MoE](#-epikv-moe-enhanced-moe-with-advanced-optimizations) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
 
 </div>
 
+- 🔥🔥🔥 09/09/2025 PiKV released EPiKV-MoE which supports Dynamic Load-Balancer, Asynchoronous Execution Manager and Communication-Aware Expert Routing.
 - 🔥🔥🔥 09/06/2025 PiKV now supports SinkhornRouter, PERouter (Predictive-Entropy), and BARouter (Budget-Aware).
 - 🔥🔥🔥 09/02/2025 PiKV now supports Belady-Approx scheduling (predictive next-use eviction) and Hazard-LRU scheduling (risk-based age/sim/uncertainty eviction).
 - 🔥🔥🔥 08/25/2025 PiKV now supports Two-Queue hierarchical cache with admission control.
@@ -27,7 +28,8 @@
 ## Table of Contents
 
 - [Overview](#-overview)
-- [Key Features](#-key-features)  
+- [Key Features](#-key-features)
+- [EPiKV-MoE: Enhanced MoE with Advanced Optimizations](#-epikv-moe-enhanced-moe-with-advanced-optimizations)
 - [System Architecture](#️-system-architecture)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -87,6 +89,78 @@ PiKV (Pyramid)           │ PiKV (Pyramid)
                           │                    
 PiKV (Quantized)         │ PiKV (Quantized)   
 ████ 35%                 │ ████████████ 2.2x  
+```
+
+## EPiKV-MoE
+
+EPiKV-MoE addresses three critical issues in traditional MoE systems with optional implementations:
+
+### Dynamic Load Balancing
+**Problem**: Load imbalance where some experts are overloaded while others are underutilized.
+**Solution**: Real-time expert selection with adaptive routing and performance monitoring.
+
+```python
+from core.single.enhanced_pikv_moe import create_enhanced_pikv_moe
+
+# Create model with dynamic load balancing
+model = create_enhanced_pikv_moe(
+    enable_dynamic_balancing=True,
+    load_balancing_strategy='adaptive'
+)
+
+# Monitor load balancing metrics
+metrics = model.get_performance_metrics()
+print(f"Load imbalance: {metrics['load_balancing']['load_imbalance']}")
+```
+
+### Asynchronous Execution
+**Problem**: Synchronous execution creates bottlenecks when experts have dependencies.
+**Solution**: Pipeline parallelism and asynchronous communication to overlap computation and communication.
+
+```python
+# Enable async execution with dependency tracking
+model = create_enhanced_pikv_moe(
+    enable_async_execution=True,
+    execution_mode='async'
+)
+
+# Add expert dependencies
+model.async_manager.add_expert_dependency(expert_id=1, depends_on=[0])
+```
+
+### Communication-Aware Placement
+**Problem**: Traditional MoE ignores network topology, leading to inefficient all-to-all communication.
+**Solution**: Topology-aware expert placement and communication scheduling.
+
+```python
+# Enable communication optimization
+model = create_enhanced_pikv_moe(
+    enable_communication_optimization=True,
+    communication_strategy='topology_aware',
+    network_topology='mesh',
+    world_size=4
+)
+
+# Optimize expert placement based on communication patterns
+expert_patterns = {0: [1, 2, 3], 1: [0, 2], 2: [0, 1, 3], 3: [0, 2]}
+model.communication_placer.optimize_expert_placement(expert_patterns)
+```
+
+###  Configuration of EPiKV-MoE
+```python
+# Use predefined optimization presets
+from core.single.enhanced_config import create_optimization_presets
+
+presets = create_optimization_presets()
+config = presets['high_performance']  # or 'balanced', 'memory_efficient', etc.
+
+# Or create custom configuration
+from core.single.enhanced_config import get_enhanced_config
+config = get_enhanced_config(
+    load_balancing_strategy='adaptive',
+    execution_mode='async',
+    communication_strategy='topology_aware'
+)
 ```
 
 ## System Architecture
