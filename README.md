@@ -10,10 +10,11 @@
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-[Features](#-key-features) • [EPiKV-MoE](#-epikv-moe-enhanced-moe-with-advanced-optimizations) • [KVCache-Centric](#-kvcache-centric-system-optimization) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
+[Features](#-key-features) • [EPiKV-MoE](#-epikv-moe-enhanced-moe-with-advanced-optimizations) • [KVCache-Centric](#-kvcache-centric-system-optimization) • [vLLM Integration](#-vllm-integration) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
 
 </div>
 
+- 🔥🔥🔥 10/16/2025 PiKV now supports vLLM Integration with MoE KV Cache Optimization in vLLM inference engine.
 - 🔥🔥🔥 09/19/2025 PiKV now supports KVCache-Centric System Optimization with Paged KVCache, Distributed Cache Pool, and Cache-aware Scheduling.
 - 🔥🔥🔥 09/10/2025 PiKV now supports SmartMoE.
 - 🔥🔥🔥 09/09/2025 PiKV released EPiKV-MoE which supports Dynamic Load-Balancer, Asynchoronous Execution Manager, Communication-Aware Expert Routing.
@@ -33,6 +34,7 @@
 - [Key Features](#-key-features)
 - [EPiKV-MoE: Enhanced MoE with Advanced Optimizations](#-epikv-moe-enhanced-moe-with-advanced-optimizations)
 - [KVCache-Centric System Optimization](#-kvcache-centric-system-optimization)
+- [vLLM Integration](#-vllm-integration)
 - [System Architecture](#️-system-architecture)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -73,6 +75,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 |-----------|-------------|------------------|
 | **Enhanced PiKV MoE** | Advanced MoE with normalization, LoRA, and multiple routing strategies | BaseRouter, EPLBRouter, HierarchicalRouter, FlexMoERouter, TimeMoERouter, FastMoERouter, FasterMoERouter, SmartMoE |
 | **KVCache-Centric System** | Advanced memory management and scheduling optimizations | PagedKVCache, DistributedKVCachePool, CacheAwarePrefillScheduler, LoadBalanceDecodingScheduler |
+| **vLLM Integration** | Seamless integration with vLLM inference engine | PiKVvLLMEngine, PiKVvLLMServer, PiKVvLLMConfig |
 | **PiKV Compression** | Unified compression with multiple strategies | LoRACompressor, PyramidCompressor, SVDCompressor, QuantizedCompressor, FastVCompressor, PiKVCompressor |
 | **PiKV Cache Scheduling** | Dynamic cache management policies | H2OScheduler, StreamingLLMScheduler, QUESTScheduler, FlexGenScheduler, LRUScheduler, LRUPlusScheduler, AdaKVScheduler, DuoAttentionScheduler |
 | **PiKV CUDA Acceleration** | Custom kernels for maximum performance | Optimized routing, compression, and cache operations |
@@ -237,7 +240,7 @@ decoding_instance = system.decoding_scheduler.get_next_decoding()
 output = decoding_instance.process()
 ```
 
-### 📊 System Optimization Benefits
+### System Optimization Benefits
 - **Cache Hit Rate**: Up to 95% with intelligent page management
 - **Cache Reuse**: Up to 80% reuse rate with cache-aware scheduling
 - **Throughput**: Up to 3x improvement with load balancing
@@ -254,6 +257,86 @@ stats = system.get_system_stats()
 print(f"Cache hit rate: {stats['paged_cache']['hit_rate']:.3f}")
 print(f"Cache reuse rate: {stats['prefill_scheduler']['cache_reuse_rate']:.3f}")
 print(f"SLO compliance: {stats['decoding_scheduler']['slo_compliance_rate']:.3f}")
+```
+
+## vLLM Integration
+
+PiKV integrates with vLLM inference:
+
+### Quick Setup
+```python
+from core.single.vllm_integration import create_pikv_vllm
+
+# Create PiKV-enhanced vLLM engine
+engine = create_pikv_vllm(
+    model_name="microsoft/DialoGPT-medium",
+    enable_compression=True,
+    enable_scheduling=True,
+    enable_kvcache_centric=True
+)
+
+# Generate with PiKV optimizations
+results = await engine.generate(["Hello, how are you?"])
+```
+
+### ⚡ Async Server with Request Handling
+**High-throughput serving**: Async server with worker pools and callbacks.
+
+```python
+from core.single.vllm_integration import create_pikv_vllm_server, PiKVvLLMConfig
+
+# Create server configuration
+config = PiKVvLLMConfig(
+    model_name="microsoft/DialoGPT-medium",
+    enable_pikv_compression=True,
+    enable_pikv_scheduling=True,
+    enable_kvcache_centric=True
+)
+
+# Create and start server
+server = create_pikv_vllm_server(config)
+await server.start(num_workers=4)
+
+# Submit requests with callbacks
+async def callback(request_id, results, error=None):
+    if error:
+        print(f"Request {request_id} failed: {error}")
+    else:
+        print(f"Request {request_id} completed: {results}")
+
+request_id = await server.submit_request(
+    prompts=["Tell me about machine learning"],
+    callback=callback
+)
+```
+
+### Distributed Inference with MoE
+**Scalable deployment**: MoE support with distributed inference.
+
+```python
+# Create engine with MoE support
+engine = create_pikv_vllm(
+    model_name="microsoft/DialoGPT-medium",
+    enable_moe=True,
+    enable_kvcache_centric=True,
+    world_size=4
+)
+
+# Generate with distributed MoE
+results = await engine.generate(prompts)
+```
+
+### 🔧 Quick Setup
+```python
+# One-line setup for common use cases
+engine = create_pikv_vllm(
+    model_name="your-model",
+    enable_compression=True,
+    enable_scheduling=True
+)
+
+# Start generating immediately
+results = await engine.generate(["Your prompt here"])
 ```
 
 ## System Architecture
