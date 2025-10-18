@@ -14,6 +14,7 @@
 
 </div>
 
+- 🔥🔥🔥 **10/1/2024** PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
 - 🔥🔥🔥 10/16/2025 PiKV now supports vLLM Integration with MoE KV Cache Optimization in vLLM inference engine.
 - 🔥🔥🔥 09/19/2025 PiKV now supports KVCache-Centric System Optimization with Paged KVCache, Distributed Cache Pool, and Cache-aware Scheduling.
 - 🔥🔥🔥 09/10/2025 PiKV now supports SmartMoE.
@@ -35,6 +36,8 @@
 - [EPiKV-MoE: Enhanced MoE with Advanced Optimizations](#-epikv-moe-enhanced-moe-with-advanced-optimizations)
 - [KVCache-Centric System Optimization](#-kvcache-centric-system-optimization)
 - [vLLM Integration](#-vllm-integration)
+- [DeepSpeed Integration](#-deepspeed-integration)
+- [Distributed Training](#-distributed-training)
 - [System Architecture](#️-system-architecture)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -76,6 +79,8 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 | **Enhanced PiKV MoE** | Advanced MoE with normalization, LoRA, and multiple routing strategies | BaseRouter, EPLBRouter, HierarchicalRouter, FlexMoERouter, TimeMoERouter, FastMoERouter, FasterMoERouter, SmartMoE |
 | **KVCache-Centric System** | Advanced memory management and scheduling optimizations | PagedKVCache, DistributedKVCachePool, CacheAwarePrefillScheduler, LoadBalanceDecodingScheduler |
 | **vLLM Integration** | Seamless integration with vLLM inference engine | PiKVvLLMEngine, PiKVvLLMServer, PiKVvLLMConfig |
+| **DeepSpeed Integration** | Enterprise-grade distributed training with ZeRO optimization | PiKVDeepSpeedManager, ZeRO-1/2/3, CPU offloading, MoE expert parallelism |
+| **Distributed Training** | Enhanced distributed training with error handling and monitoring | DistributedPiKVManager, DistributedPiKVMoE, Performance monitoring, Advanced checkpointing |
 | **PiKV Compression** | Unified compression with multiple strategies | LoRACompressor, PyramidCompressor, SVDCompressor, QuantizedCompressor, FastVCompressor, PiKVCompressor |
 | **PiKV Cache Scheduling** | Dynamic cache management policies | H2OScheduler, StreamingLLMScheduler, QUESTScheduler, FlexGenScheduler, LRUScheduler, LRUPlusScheduler, AdaKVScheduler, DuoAttentionScheduler |
 | **PiKV CUDA Acceleration** | Custom kernels for maximum performance | Optimized routing, compression, and cache operations |
