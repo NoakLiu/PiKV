@@ -88,7 +88,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 ### Performance Metrics
 
 ```
-Memory Usage Reduction    │ Training Speed Improvement
+Memory Usage Reduction    │ Inference Speed Improvement
                           │
 Standard MoE             │ Standard MoE        
 ████████████ 100%        │ ██████ 1.0x        
@@ -101,9 +101,6 @@ PiKV (Pyramid)           │ PiKV (Pyramid)
                           │                    
 PiKV (Quantized)         │ PiKV (Quantized)   
 ████ 35%                 │ ████████████ 2.2x  
-                          │                    
-PiKV + DeepSpeed ZeRO-3  │ PiKV + DeepSpeed   
-███ 30%                  │ ██████████████ 2.5x
 ```
 
 ## EPiKV-MoE
