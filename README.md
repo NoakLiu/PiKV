@@ -4,7 +4,7 @@
 
 *Revolutionary KV Cache System with Intelligent Routing and Advanced Compression for Large Language Models*
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange.svg)](https://pytorch.org/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -380,7 +380,7 @@ The Mixture-of-Experts architecture enhanced with advanced features:
 
 ### Prerequisites
 
-- **Python**: 3.8 or higher
+- **Python**: 3.10 or higher
 - **PyTorch**: 2.0 or higher  
 - **CUDA**: 11.8+ (for GPU acceleration)
 - **Memory**: 8GB+ RAM (16GB+ recommended for large models)
