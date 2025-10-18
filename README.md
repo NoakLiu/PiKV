@@ -14,7 +14,7 @@
 
 </div>
 
-- 🔥🔥🔥 **10/1/2024** PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
+- 🔥🔥🔥 10/18/2024 PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
 - 🔥🔥🔥 10/16/2025 PiKV now supports vLLM Integration with MoE KV Cache Optimization in vLLM inference engine.
 - 🔥🔥🔥 09/19/2025 PiKV now supports KVCache-Centric System Optimization with Paged KVCache, Distributed Cache Pool, and Cache-aware Scheduling.
 - 🔥🔥🔥 09/10/2025 PiKV now supports SmartMoE.
@@ -88,7 +88,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 ### Performance Metrics
 
 ```
-Memory Usage Reduction    │ Inference Speed Improvement
+Memory Usage Reduction    │ Training Speed Improvement
                           │
 Standard MoE             │ Standard MoE        
 ████████████ 100%        │ ██████ 1.0x        
@@ -101,6 +101,9 @@ PiKV (Pyramid)           │ PiKV (Pyramid)
                           │                    
 PiKV (Quantized)         │ PiKV (Quantized)   
 ████ 35%                 │ ████████████ 2.2x  
+                          │                    
+PiKV + DeepSpeed ZeRO-3  │ PiKV + DeepSpeed   
+███ 30%                  │ ██████████████ 2.5x
 ```
 
 ## EPiKV-MoE
@@ -344,6 +347,71 @@ engine = create_pikv_vllm(
 results = await engine.generate(["Your prompt here"])
 ```
 
+## DeepSpeed Integration
+
+PiKV now supports comprehensive DeepSpeed integration for enterprise-grade distributed training:
+
+### 🚀 **DeepSpeed Setup with PiKV**
+```python
+from core.distributed.deepspeed_integration import create_pikv_deepspeed
+
+# Create DeepSpeed-enhanced PiKV
+manager = create_pikv_deepspeed(
+    model_name="microsoft/DialoGPT-medium",
+    enable_compression=True,
+    enable_scheduling=True,
+    enable_kvcache_centric=True,
+    zero_stage=3  # ZeRO-3 optimization
+)
+
+# Start training immediately
+loss = manager.train_step(data, target)
+```
+th full offloading (50% memory reduction)
+
+
+```python
+# MoE training with DeepSpeed
+manager = create_pikv_deepspeed(
+    enable_moe=True,
+    zero_stage=3,
+    offload_optimizer=True,
+    offload_param=True,
+    moe_expert_count=8,
+    moe_top_k=2
+)
+
+# Performance monitoring
+metrics = manager.get_performance_metrics()
+print(f"Memory usage: {metrics['memory_usage']:.2f}GB")
+print(f"Throughput: {metrics['throughput']:.2f} elem/s")
+```
+
+## Distributed Training
+
+```bash
+# Basic distributed training
+torchrun --nproc_per_node=4 examples/distributed_training_example.py --mode basic
+
+# DeepSpeed training
+torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --zero_stage 3
+
+# MoE training with DeepSpeed
+torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --enable_moe --zero_stage 3
+```
+
+### **Training Script**
+```bash
+# Make script executable
+chmod +x examples/run_distributed_training.sh
+
+# Run different training modes
+./examples/run_distributed_training.sh basic
+./examples/run_distributed_training.sh deepspeed-zero3
+./examples/run_distributed_training.sh moe
+./examples/run_distributed_training.sh compare
+```
+
 ## System Architecture
 
 ### System Design Overview
@@ -433,9 +501,45 @@ numpy>=1.21.0
 matplotlib>=3.5.0
 tqdm>=4.64.0
 cupy-cuda11x>=12.0.0  # For CUDA acceleration
+deepspeed>=0.12.0     # For DeepSpeed integration
+vllm>=0.2.0          # For vLLM integration
 ```
 
 ## Quick Start
+
+```python
+# Single GPU - Enhanced MoE
+from core.single.moe import create_moe
+model = create_moe('pikv', hidden_size=1024, num_experts=8, use_normalization=True, use_lora=True)
+
+# vLLM Integration - Production Inference
+from core.single.vllm_integration import create_pikv_vllm
+engine = create_pikv_vllm("microsoft/DialoGPT-medium", enable_compression=True, enable_scheduling=True)
+
+# DeepSpeed - Enterprise Training
+from core.distributed.deepspeed_integration import create_pikv_deepspeed
+manager = create_pikv_deepspeed(enable_moe=True, zero_stage=3, offload_optimizer=True)
+
+# Distributed Training - Multi-GPU
+from core.distributed.distributed_pikv import DistributedPiKVManager
+manager = DistributedPiKVManager()
+```
+
+### 🎯 **Command Line Quick Start**
+
+```bash
+# Basic distributed training
+torchrun --nproc_per_node=4 examples/distributed_training_example.py --mode basic
+
+# DeepSpeed training with ZeRO-3
+torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --zero_stage 3
+
+# MoE training with DeepSpeed
+torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --enable_moe --zero_stage 3
+
+# Easy training script
+./examples/run_distributed_training.sh deepspeed-zero3
+```
 
 ### Basic Usage
 
@@ -748,6 +852,15 @@ cd core/cuda && make test
 
 # Run compression tests
 python -c "from core.single.pikv_compression import create_compressor; print('Compression tests passed')"
+
+# Run distributed training tests
+torchrun --nproc_per_node=2 examples/distributed_training_example.py --mode basic --steps_per_epoch 10
+
+# Run DeepSpeed tests
+torchrun --nproc_per_node=2 examples/deepspeed_training_example.py --zero_stage 1 --steps_per_epoch 10
+
+# Run comprehensive training comparison
+./examples/run_distributed_training.sh compare
 ```
 
 ### Building CUDA Extensions
