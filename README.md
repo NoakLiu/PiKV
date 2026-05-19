@@ -14,8 +14,8 @@
 
 </div>
 
-- 🔥🔥🔥 **03/24/2026** PiKV adds **PiKV-FPGA** with **Verilog RTL** + **C host** (`libpikv_fpga.so`): MMIO `PiKV-CTRL`, `ScoreFuse`, `Codecρ`, page table `D+`, scheduler (§3.5).
-- 🔥🔥🔥 10/18/2024 PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
+- 🔥🔥🔥 03/24/2026 PiKV adds **PiKV-FPGA** with **Verilog RTL** + **C host** (`libpikv_fpga.so`): MMIO `PiKV-CTRL`, `ScoreFuse`, `Codecρ`, page table `D+`, scheduler (§3.5).
+- 🔥🔥🔥 10/18/2025 PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
 - 🔥🔥🔥 10/16/2025 PiKV now supports vLLM Integration with MoE KV Cache Optimization in vLLM inference engine.
 - 🔥🔥🔥 09/19/2025 PiKV now supports KVCache-Centric System Optimization with Paged KVCache, Distributed Cache Pool, and Cache-aware Scheduling.
 - 🔥🔥🔥 09/10/2025 PiKV now supports SmartMoE.
