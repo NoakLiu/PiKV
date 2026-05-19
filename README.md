@@ -39,7 +39,7 @@
 | CUDA kernels | ✅ | Routing / compression / scheduling |
 | DeepSpeed + DDP | ✅ | ZeRO-1/2/3, MoE expert parallelism |
 | vLLM integration | ✅ | Async server, KV-centric inference |
-| **PiKV-FPGA** | 🆕 | Verilog RTL + C driver + Python; bitstream synthesis (Vivado) planned |
+| **PiKV-FPGA** | 🆕 | RTL + AXI-Lite + CXL DMA + Vivado bitstream (`./build_fpga.sh bitstream`) |
 
 ---
 
@@ -473,42 +473,37 @@ cfg = FPGAConfig()
 print(estimate_bram_budget(cfg))  # ~224 KB on-chip (BRAM_Γ + BRAM_meta + URAM LoRA)
 ```
 
-### Verilog RTL & C host
+### Verilog RTL, AXI-Lite, CXL DMA & Vivado
 
 ```
 core/fpga/
-├── rtl/                    # Verilog modules (synthesizable)
-│   ├── pikv_top.v          # Top: MMIO + PiKV-CTRL
-│   ├── pikv_ctrl.v         # FSM: ROUTE→LOOKUP→COMPRESS→SCHEDULE
-│   ├── pikv_page_table.v   # D+ page table Γ
-│   ├── pikv_score_fuse.v   # ScoreFuse Top-k routing
-│   ├── pikv_codec_rho.v    # Codecρ LoRA compress
-│   ├── pikv_scheduler.v    # u_i ≷ θ
-│   └── pikv_mmio.v         # Host register file
-├── host/                   # C driver + cycle model
-│   ├── pikv_fpga.c         # MMIO /dev/pikv_fpga0 or hw model
-│   └── pikv_hw_model.c     # Software model of RTL
-├── tb/tb_pikv_top.v        # Icarus Verilog testbench
-└── Makefile
+├── rtl/
+│   ├── pikv_soc_top.v          # SoC top (AXI-Lite + AXI-MM)
+│   ├── pikv_axi_lite_slave.v   # Host MMIO (BAR0 / XDMA)
+│   ├── pikv_cxl_dma.v          # CXL.mem KV DMA bridge
+│   ├── pikv_axi_dma_master.v   # AXI4 master
+│   └── pikv_top.v              # PiKV engines + CTRL
+├── vivado/scripts/             # create_project.tcl, build_bitstream.tcl, create_bd.tcl
+├── vivado/constraints/         # U55C + generic XDC
+└── host/                       # libpikv_fpga.so
 ```
 
 ```bash
-# Build C library + run host test
+# C host + RTL sim (AXI + CXL mem model)
 ./build_fpga.sh all
+./build_fpga.sh sim-soc
 
-# Verilog simulation (requires iverilog)
-./build_fpga.sh sim
+# Vivado project + bitstream (Alveo U55C default)
+export PIKV_PART=xcu55c-fsvh2892-2L-e
+./build_fpga.sh vivado
+./build_fpga.sh bitstream      # → vivado/project/pikv_fpga.runs/impl_1/*.bit
+./build_fpga.sh bd             # optional XDMA block design
 
-# Python via C backend
-./build_fpga.sh host
-python -c "
-from core.fpga.pikv_fpga_native import PiKVFPGANative
-import numpy as np
-n = PiKVFPGANative()
-k,v,ex = n.process_token(0, np.arange(128,dtype=np.int16), np.arange(128,dtype=np.int16))
-print('experts', ex)
-"
+# Program card
+xbutil program --device <BDF> --base vivado/project/pikv_fpga.runs/impl_1/*.bit
 ```
+
+See [core/fpga/vivado/ip/README.md](core/fpga/vivado/ip/README.md) for **XDMA** + **CXL Type-3** IP wiring.
 
 ## System Architecture
 
@@ -1030,12 +1025,10 @@ If you use PiKV in your research, please cite our work:
 ```bibtex
 @article{liu2025pikv,
       title={PiKV: KV Cache Management System for Mixture of Experts}, 
-      author={Dong Liu and Yanxuan Yu and Ben Lengerich and Ying Nian Wu and Xuhong Wang},
+      author={Dong Liu and Yanxuan Yu and Ben Lengerich and Ying Nian Wu},
       year={2025},
       eprint={2508.06526},
-      archivePrefix={arXiv},
-      primaryClass={cs.DC},
-      url={https://arxiv.org/abs/2508.06526}, 
+      archivePrefix={arXiv}
 }
 ```
 

@@ -21,6 +21,10 @@
 #define PIKV_REG_EXPERTS     0x028
 #define PIKV_REG_K_IN        0x02C
 #define PIKV_REG_V_IN        0x030
+#define PIKV_REG_CXL_BASE_LO 0x040
+#define PIKV_REG_CXL_BASE_HI 0x044
+#define PIKV_REG_DMA_XFERS   0x048
+#define PIKV_REG_DMA_BUSY    0x04C
 
 #define PIKV_CTRL_START      (1u << 0)
 #define PIKV_CTRL_RESET      (1u << 1)

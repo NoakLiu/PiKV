@@ -10,9 +10,12 @@ module pikv_top (
     input  wire [11:0]  mmio_addr,
     input  wire [31:0]  mmio_wdata,
     output wire [31:0]  mmio_rdata,
-    // DMA / KV stream (to CXL DDR — stub)
-    output wire         dma_req,
-    output wire [19:0]  dma_addr
+    // CXL DMA: store compressed KV to disaggregated DDR
+    output wire                     dma_req,
+    output wire                     dma_we,
+    output wire [`PIKV_ADDR_W-1:0]  dma_addr,
+    output wire [127:0]             dma_wdata,
+    input  wire                     dma_ack
 );
 
     wire [7:0]  cmd;
@@ -100,7 +103,15 @@ module pikv_top (
         .theta(theta_reg)
     );
 
-    assign dma_req  = pt_insert;
-    assign dma_addr = pt_insert_addr;
+    wire [15:0] k_comp, v_comp;
+    assign k_comp = k_in;
+    assign v_comp = v_in;
+
+  // Pack K̂,V̂ (32+32 bit) per DMA beat to CXL.mem
+    assign dma_req    = pt_insert;
+    assign dma_we     = 1'b1;
+    assign dma_addr   = pt_insert_addr;
+    assign dma_wdata  = {v_comp, k_comp, 64'b0};
 
 endmodule
+
