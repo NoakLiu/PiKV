@@ -10,10 +10,11 @@
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-[Features](#-key-features) • [EPiKV-MoE](#-epikv-moe-enhanced-moe-with-advanced-optimizations) • [KVCache-Centric](#-kvcache-centric-system-optimization) • [vLLM Integration](#-vllm-integration) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
+[Features](#-key-features) • [EPiKV-MoE](#-epikv-moe) • [FPGA Offload](#-fpga-hardware-aware-offload) • [vLLM Integration](#-vllm-integration) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
 
 </div>
 
+- 🔥🔥🔥 **03/24/2026** PiKV adds **PiKV-FPGA** with **Verilog RTL** + **C host** (`libpikv_fpga.so`): MMIO `PiKV-CTRL`, `ScoreFuse`, `Codecρ`, page table `D+`, scheduler (§3.5).
 - 🔥🔥🔥 10/18/2024 PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
 - 🔥🔥🔥 10/16/2025 PiKV now supports vLLM Integration with MoE KV Cache Optimization in vLLM inference engine.
 - 🔥🔥🔥 09/19/2025 PiKV now supports KVCache-Centric System Optimization with Paged KVCache, Distributed Cache Pool, and Cache-aware Scheduling.
@@ -27,6 +28,19 @@
 - 🔥🔥🔥 07/01/2025 PiKV can be integrated with NVIDIA kvxpress for acceleration! Details check [PiKVpress](https://github.com/NoakLiu/PiKVpress).
 - 🔥🔥🔥 06/12/2025 PiKV has been accepted to ICML 2025 ES-FoMo III.
 
+### Progress
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Expert-sharded KV storage | ✅ | Multi-GPU / distributed cache pool |
+| PiKV Routing | ✅ | TopK, EPLB, hierarchical, cache-aware, SmartMoE |
+| PiKV Compression | ✅ | LoRA, PyramidKV, SVD, FastV, unified compressor |
+| PiKV Scheduling | ✅ | H2O, QUEST, AdaKV, Duo, Belady-Approx, Hazard-LRU |
+| CUDA kernels | ✅ | Routing / compression / scheduling |
+| DeepSpeed + DDP | ✅ | ZeRO-1/2/3, MoE expert parallelism |
+| vLLM integration | ✅ | Async server, KV-centric inference |
+| **PiKV-FPGA** | 🆕 | Verilog RTL + C driver + Python; bitstream synthesis (Vivado) planned |
+
 ---
 
 ## Table of Contents
@@ -38,6 +52,7 @@
 - [vLLM Integration](#-vllm-integration)
 - [DeepSpeed Integration](#-deepspeed-integration)
 - [Distributed Training](#-distributed-training)
+- [FPGA Hardware-Aware Offload](#-fpga-hardware-aware-offload)
 - [System Architecture](#️-system-architecture)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
@@ -84,6 +99,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 | **PiKV Compression** | Unified compression with multiple strategies | LoRACompressor, PyramidCompressor, SVDCompressor, QuantizedCompressor, FastVCompressor, PiKVCompressor |
 | **PiKV Cache Scheduling** | Dynamic cache management policies | H2OScheduler, StreamingLLMScheduler, QUESTScheduler, FlexGenScheduler, LRUScheduler, LRUPlusScheduler, AdaKVScheduler, DuoAttentionScheduler |
 | **PiKV CUDA Acceleration** | Custom kernels for maximum performance | Optimized routing, compression, and cache operations |
+| **PiKV-FPGA** | CXL-disaggregated metadata offload (paper §3.5) | `PiKV-CTRL` MMIO, `PageTableEngine`, `ScoreFuseEngine`, `CodecRhoEngine`, `SchedulerFPGAEngine` |
 
 ### Performance Metrics
 
@@ -409,6 +425,91 @@ chmod +x examples/run_distributed_training.sh
 ./examples/run_distributed_training.sh compare
 ```
 
+## FPGA Hardware-Aware Offload
+
+PiKV-FPGA offloads **metadata-intensive** stages to a CXL-attached SmartNIC while the GPU runs `f_enc` and `f_attn`. KV bodies live in disaggregated DDR; the FPGA keeps page tables, scores, and codec weights on chip (see [CXL-SpecKV](https://doi.org/10.1145/3748173.3779188)).
+
+```
+GPU ──MMIO──► PiKV-CTRL ──► {D+, ScoreFuse, Codecρ, DMA} ──CXL.mem──► DDR pool
+GPU ◄──PCIe/CXL── packed {(K̂, V̂, idx)} for active pages P_t
+```
+
+### Engine mapping (paper Table 4–5)
+
+| Stage | FPGA engine | PiKV methods |
+|-------|-------------|--------------|
+| **Routing** | `ScoreFuse` + radix Top-k | hash, TopK, load-balance, cache-aware, entropy-LB, hierarchical |
+| **Compression** | `Codecρ` | LoRA, PyramidKV, ChunkKV, FastV, structured prune |
+| **Scheduling** | `ui ≷ θ` | H2O, sliding window, QUEST MLP, LRU, AdaKV, Duo |
+| **Page table** | `D+` gather | `Γ: (t,e) ↦ addr`, miss counts `m_e` |
+
+### Quick usage
+
+```python
+from core.fpga import create_pikv_fpga, is_fpga_available
+import torch
+
+fpga = create_pikv_fpga(num_experts=64, hidden_size=128, top_k=4, compression_ratio=4.0)
+q, k, v = torch.randn(128), torch.randn(128), torch.randn(128)
+packed, experts = fpga.process_token(q, k, v, token_id=0)
+print(experts, packed.shape, fpga.get_stats())
+```
+
+```bash
+# Simulation (default; no hardware)
+python examples/fpga_offload_example.py
+
+# Optional: point to device node when driver is installed
+export PIKV_FPGA_DEVICE=/dev/pikv_fpga0
+export PIKV_FPGA_SIM=0
+python examples/fpga_offload_example.py
+```
+
+### Resource budget (default tile E=64, S=256, k=4, K=16, d=128)
+
+```python
+from core.fpga.config import FPGAConfig, estimate_bram_budget
+cfg = FPGAConfig()
+print(estimate_bram_budget(cfg))  # ~224 KB on-chip (BRAM_Γ + BRAM_meta + URAM LoRA)
+```
+
+### Verilog RTL & C host
+
+```
+core/fpga/
+├── rtl/                    # Verilog modules (synthesizable)
+│   ├── pikv_top.v          # Top: MMIO + PiKV-CTRL
+│   ├── pikv_ctrl.v         # FSM: ROUTE→LOOKUP→COMPRESS→SCHEDULE
+│   ├── pikv_page_table.v   # D+ page table Γ
+│   ├── pikv_score_fuse.v   # ScoreFuse Top-k routing
+│   ├── pikv_codec_rho.v    # Codecρ LoRA compress
+│   ├── pikv_scheduler.v    # u_i ≷ θ
+│   └── pikv_mmio.v         # Host register file
+├── host/                   # C driver + cycle model
+│   ├── pikv_fpga.c         # MMIO /dev/pikv_fpga0 or hw model
+│   └── pikv_hw_model.c     # Software model of RTL
+├── tb/tb_pikv_top.v        # Icarus Verilog testbench
+└── Makefile
+```
+
+```bash
+# Build C library + run host test
+./build_fpga.sh all
+
+# Verilog simulation (requires iverilog)
+./build_fpga.sh sim
+
+# Python via C backend
+./build_fpga.sh host
+python -c "
+from core.fpga.pikv_fpga_native import PiKVFPGANative
+import numpy as np
+n = PiKVFPGANative()
+k,v,ex = n.process_token(0, np.arange(128,dtype=np.int16), np.arange(128,dtype=np.int16))
+print('experts', ex)
+"
+```
+
 ## System Architecture
 
 ### System Design Overview
@@ -520,6 +621,10 @@ manager = create_pikv_deepspeed(enable_moe=True, zero_stage=3, offload_optimizer
 # Distributed Training - Multi-GPU
 from core.distributed.distributed_pikv import DistributedPiKVManager
 manager = DistributedPiKVManager()
+
+# FPGA metadata offload (simulation or CXL SmartNIC)
+from core.fpga import create_pikv_fpga
+fpga = create_pikv_fpga(num_experts=64, hidden_size=128, top_k=4)
 ```
 
 ### 🎯 **Command Line Quick Start**
@@ -536,6 +641,9 @@ torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --enable_moe 
 
 # Easy training script
 ./examples/run_distributed_training.sh deepspeed-zero3
+
+# FPGA offload (software simulation)
+python examples/fpga_offload_example.py
 ```
 
 ### Basic Usage
@@ -703,6 +811,25 @@ if PiKVCUDA.is_cuda_available():
     expert_indices, expert_weights = pikv_cuda.top_k_experts(router_logits, top_k=2)
     
     print(f"CUDA-accelerated routing: {router_logits.shape}")
+```
+
+### FPGA Acceleration
+
+```python
+from core.fpga import create_pikv_fpga, is_fpga_available
+from core.fpga.config import FPGAEngineMapping, FPGARoutingEngine, FPGACompressionEngine, FPGASchedulingEngine
+
+if is_fpga_available():
+    fpga = create_pikv_fpga(
+        num_experts=64,
+        hidden_size=128,
+        top_k=4,
+        compression_ratio=4.0,
+    )
+    q = torch.randn(128)
+    packed, experts = fpga.process_token(q, q, q, token_id=0)
+    fpga.update_scheduler_theta(target_hit_rate=0.9)
+    print(fpga.get_stats())
 ```
 
 ## Advanced Features
