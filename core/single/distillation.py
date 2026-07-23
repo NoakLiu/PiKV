@@ -5,9 +5,6 @@ import math
 from typing import Tuple, Dict, List, Optional, Union, Any
 from .config import config
 
-# 修复：导入缺失的distillation_training_step函数引用
-from .distillation import PiKVDistillation
-
 class KnowledgeDistillationLoss(nn.Module):
     """
     知识蒸馏损失函数

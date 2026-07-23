@@ -19,30 +19,17 @@ import os
 import time
 import numpy as np
 
-# Add the core directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'core', 'single'))
+# Add the repository root so package imports resolve
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-try:
-    from kvcache_centric_system import (
-        KVCacheCentricSystem, 
-        create_kvcache_centric_system,
-        SLOConstraints,
-        CacheLocation,
-        InstanceType,
-        SchedulerType
-    )
-except ImportError:
-    # Fallback for development
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'core', 'single'))
-    from kvcache_centric_system import (
-        KVCacheCentricSystem, 
-        create_kvcache_centric_system,
-        SLOConstraints,
-        CacheLocation,
-        InstanceType,
-        SchedulerType
-    )
+from core.single.kvcache_centric_system import (
+    KVCacheCentricSystem, 
+    create_kvcache_centric_system,
+    SLOConstraints,
+    CacheLocation,
+    InstanceType,
+    SchedulerType
+)
 
 
 def example_1_paged_kvcache():

@@ -161,10 +161,10 @@ enhanced_config = {
 
 
 def get_enhanced_config(
-    load_balancing_strategy: LoadBalancingStrategy = LoadBalancingStrategy.ADAPTIVE,
-    execution_mode: ExecutionMode = ExecutionMode.ASYNC,
-    communication_strategy: CommunicationStrategy = CommunicationStrategy.TOPOLOGY_AWARE,
-    network_topology: NetworkTopology = NetworkTopology.FULLY_CONNECTED,
+    load_balancing_strategy: Union[LoadBalancingStrategy, str] = LoadBalancingStrategy.ADAPTIVE,
+    execution_mode: Union[ExecutionMode, str] = ExecutionMode.ASYNC,
+    communication_strategy: Union[CommunicationStrategy, str] = CommunicationStrategy.TOPOLOGY_AWARE,
+    network_topology: Union[NetworkTopology, str] = NetworkTopology.FULLY_CONNECTED,
     world_size: int = 1,
     **kwargs
 ) -> Dict:
@@ -182,9 +182,27 @@ def get_enhanced_config(
     Returns:
         Configuration dictionary
     """
+    def _coerce(enum_cls, value):
+        if isinstance(value, enum_cls):
+            return value
+        if isinstance(value, str):
+            return enum_cls(value.lower())
+        return value
+
+    load_balancing_strategy = _coerce(LoadBalancingStrategy, load_balancing_strategy)
+    execution_mode = _coerce(ExecutionMode, execution_mode)
+    communication_strategy = _coerce(CommunicationStrategy, communication_strategy)
+    network_topology = _coerce(NetworkTopology, network_topology)
+
     config = enhanced_config.copy()
     
     # Update load balancing configuration
+    config['load_balancing'] = dict(config['load_balancing'])
+    config['async_execution'] = dict(config['async_execution'])
+    config['communication_optimization'] = dict(config['communication_optimization'])
+    config['network_topology'] = dict(config['network_topology'])
+    config['distributed'] = dict(config.get('distributed', {}))
+
     config['load_balancing']['strategy'] = load_balancing_strategy
     config['load_balancing']['enabled'] = load_balancing_strategy != LoadBalancingStrategy.NONE
     

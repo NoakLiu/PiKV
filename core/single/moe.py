@@ -325,7 +325,10 @@ class HierarchicalRouter(BaseRouter):
                  num_hierarchies: int = 2):
         super().__init__(hidden_size, num_experts, top_k)
         self.num_hierarchies = num_hierarchies
-        self.experts_per_hierarchy = num_experts // num_hierarchies
+        self.experts_per_hierarchy = max(1, num_experts // num_hierarchies)
+        # Aliases expected by examples
+        self.num_groups = self.num_hierarchies
+        self.experts_per_group = self.experts_per_hierarchy
         
         # Hierarchical routing networks
         self.hierarchy_routers = nn.ModuleList([
@@ -602,15 +605,15 @@ class FlexMoERouter(BaseRouter):
             nn.Linear(hidden_size, num_modalities)
         )
     
-    def forward(self, x: torch.Tensor, modality_info: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, float]:
+    def forward(self, x: torch.Tensor, modality_info: Optional[Union[torch.Tensor, Dict]] = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor, float]:
         """Flex-MoE routing with modality awareness"""
         batch_size, seq_len, _ = x.shape
         
         # Apply normalization
         x_norm = self.router_norm(x)
         
-        # Modality fusion
-        if modality_info is not None:
+        # Modality fusion (accept dict payloads from examples and ignore them)
+        if isinstance(modality_info, torch.Tensor):
             modality_weights = F.softmax(self.modality_fusion(modality_info), dim=-1)
         else:
             modality_weights = torch.ones(batch_size, seq_len, self.num_modalities, device=x.device) / self.num_modalities
@@ -672,8 +675,11 @@ class TimeMoERouter(BaseRouter):
         
         # Time embedding
         self.time_embedding = nn.Embedding(temporal_window, hidden_size)
+        # Alias expected by examples
+        self.temporal_encoder = self.temporal_router
     
-    def forward(self, x: torch.Tensor, time_steps: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor, float]:
+    def forward(self, x: torch.Tensor, time_steps: Optional[torch.Tensor] = None,
+                time_info: Optional[Union[torch.Tensor, Dict]] = None, **kwargs) -> Tuple[torch.Tensor, torch.Tensor, float]:
         """Time-MoE routing with temporal awareness"""
         batch_size, seq_len, _ = x.shape
         
@@ -683,8 +689,12 @@ class TimeMoERouter(BaseRouter):
         # Temporal attention
         attn_out, _ = self.temporal_attention(x_norm, x_norm, x_norm)
         
-        # Time embedding
-        if time_steps is not None:
+        # Time embedding (examples may pass a dict as time_info — treat as absent)
+        if time_steps is not None and isinstance(time_steps, torch.Tensor) and time_steps.dtype in (torch.long, torch.int, torch.int32, torch.int64):
+            # Clamp to embedding range
+            time_steps = time_steps.long().clamp(0, self.temporal_window - 1)
+            if time_steps.dim() == 1:
+                time_steps = time_steps.unsqueeze(0).expand(batch_size, -1)
             time_emb = self.time_embedding(time_steps)
         else:
             time_emb = torch.zeros_like(x_norm)
@@ -779,6 +789,8 @@ class MoE(nn.Module):
             self.lora_layers = nn.ModuleList([
                 LoRALayer(hidden_size, hidden_size) for _ in range(num_experts)
             ])
+            # Alias expected by examples
+            self.expert_lora = self.lora_layers
     
     def _create_router(self, router_type: str, **kwargs) -> BaseRouter:
         """Create router based on type"""
@@ -868,14 +880,36 @@ class PiKVMoE(MoE):
         return output, float(aux_loss)
 
 
-def create_moe(hidden_size: int = 512, num_experts: int = 8, expert_size: Optional[int] = None,
-               router_type: str = "base", top_k: int = 2, use_normalization: bool = True,
+def create_moe(router_type: str = "base", hidden_size: int = 512, num_experts: int = 8,
+               expert_size: Optional[int] = None, top_k: int = 2, use_normalization: bool = True,
                use_lora: bool = False, use_distillation: bool = False, **kwargs) -> Union[MoE, PiKVMoE]:
-    """Factory function to create MoE models"""
-    
+    """Factory function to create MoE models.
+
+    Args:
+        router_type: Router type ('base', 'eplb', 'hierarchical', 'flex', 'time',
+                     'fastmoe', 'fastermoe', ...) or 'pikv' for PiKVMoE.
+        hidden_size: Model hidden dimension
+        num_experts: Number of experts
+        expert_size: Expert FFN size (defaults to hidden_size)
+        top_k: Number of experts to route to
+        use_normalization: Enable layer norm
+        use_lora: Enable LoRA adapters
+        use_distillation: Enable knowledge distillation (PiKVMoE)
+    """
+    # MoE-level kwargs that must not be forwarded to routers
+    kwargs.pop('lora_rank', None)
+    kwargs.pop('rank', None)
+    kwargs.pop('alpha', None)
+
+    model_kind = router_type
+    if model_kind == 'pikv':
+        router_type = kwargs.pop('inner_router_type', 'base')
+        return PiKVMoE(hidden_size, num_experts, expert_size, router_type, top_k,
+                       use_normalization, use_lora, use_distillation or True, **kwargs)
+
     if use_distillation:
         return PiKVMoE(hidden_size, num_experts, expert_size, router_type, top_k,
                        use_normalization, use_lora, use_distillation, **kwargs)
-    else:
-        return MoE(hidden_size, num_experts, expert_size, router_type, top_k,
-                   use_normalization, use_lora, **kwargs)
+
+    return MoE(hidden_size, num_experts, expert_size, router_type, top_k,
+               use_normalization, use_lora, **kwargs)

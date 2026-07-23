@@ -20,32 +20,16 @@ import time
 import logging
 from typing import List, Dict, Any
 
-# Add the core directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'core', 'single'))
+# Add the repository root so package imports resolve
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-try:
-    from vllm_integration import (
-        PiKVvLLMConfig,
-        create_pikv_vllm_engine,
-        create_pikv_vllm_server,
-        create_pikv_vllm
-    )
-    # Mock SchedulingPolicy for development
-    class SchedulingPolicy:
-        LRU = "lru"
-except ImportError:
-    # Fallback for development
-    import sys
-    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'core', 'single'))
-    from vllm_integration import (
-        PiKVvLLMConfig,
-        create_pikv_vllm_engine,
-        create_pikv_vllm_server,
-        create_pikv_vllm
-    )
-    # Mock SchedulingPolicy for development
-    class SchedulingPolicy:
-        LRU = "lru"
+from core.single.vllm_integration import (
+    PiKVvLLMConfig,
+    create_pikv_vllm_engine,
+    create_pikv_vllm_server,
+    create_pikv_vllm
+)
+from core.single.cache_scheduling import SchedulingPolicy
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

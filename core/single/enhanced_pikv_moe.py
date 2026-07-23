@@ -11,7 +11,7 @@ import threading
 from collections import defaultdict, deque
 import numpy as np
 
-from .config import config
+from .enhanced_config import enhanced_config as config
 from .kv_cache_compression import KVCacheCompressor
 from .routing_strategy import AdaptiveRouter
 from .lora import LoRALayer, LoRAExpert, LoRAKVCache
@@ -19,6 +19,37 @@ from .distillation import PiKVDistillation, create_teacher_model, distillation_t
 from .shared import ExternalMemoryCache
 from .cache_scheduling import CacheSchedulingManager, SchedulingPolicy
 from .smartmoe import SmartMoE, create_smartmoe
+from .pikv_moe import KVCache
+
+
+class _ToggleFlag:
+    """Boolean flag that is also callable (enable) for API compatibility."""
+
+    __slots__ = ("_value", "_on_enable")
+
+    def __init__(self, value: bool = True, on_enable=None):
+        self._value = bool(value)
+        self._on_enable = on_enable
+
+    def __bool__(self):
+        return self._value
+
+    def __eq__(self, other):
+        return self._value == bool(other)
+
+    def __repr__(self):
+        return f"{self._value}"
+
+    def __call__(self):
+        self._value = True
+        if self._on_enable is not None:
+            self._on_enable()
+        return True
+
+    def set(self, value: bool):
+        self._value = bool(value)
+        return self._value
+
 
 
 class DynamicLoadBalancer:
@@ -212,7 +243,7 @@ class AsyncExecutionManager:
         await asyncio.sleep(0.001)
         return data
     
-    def pipeline_execution(self, input_data: torch.Tensor, 
+    async def pipeline_execution(self, input_data: torch.Tensor, 
                           expert_models: List[nn.Module]) -> List[torch.Tensor]:
         """Execute expert computation with pipeline parallelism"""
         results = []
@@ -404,10 +435,10 @@ class EnhancedPiKVMoE(nn.Module):
         self.cache_scheduling_policy = cache_scheduling_policy
         self.world_size = world_size
         
-        # Enable optional features
-        self.enable_dynamic_balancing = enable_dynamic_balancing
-        self.enable_async_execution = enable_async_execution
-        self.enable_communication_optimization = enable_communication_optimization
+        # Enable optional features (private attrs avoid method/attribute collisions)
+        self._enable_dynamic_balancing = enable_dynamic_balancing
+        self._enable_async_execution = enable_async_execution
+        self._enable_communication_optimization = enable_communication_optimization
         self.enable_smartmoe = enable_smartmoe
         
         # Add embedding layer
@@ -420,7 +451,7 @@ class EnhancedPiKVMoE(nn.Module):
         ])
         
         # Initialize enhanced router with dynamic load balancing
-        if self.enable_dynamic_balancing:
+        if self._enable_dynamic_balancing:
             self.router = AdaptiveRouter(
                 hidden_size=config['hidden_size'],
                 num_experts=config['num_experts'],
@@ -440,14 +471,14 @@ class EnhancedPiKVMoE(nn.Module):
             )
         
         # Initialize async execution manager
-        if self.enable_async_execution:
+        if self._enable_async_execution:
             self.async_manager = AsyncExecutionManager(
                 num_experts=config['num_experts'],
                 world_size=world_size
             )
         
         # Initialize communication-aware placer
-        if self.enable_communication_optimization:
+        if self._enable_communication_optimization:
             self.communication_placer = CommunicationAwarePlacer(
                 num_experts=config['num_experts'],
                 world_size=world_size
@@ -469,13 +500,17 @@ class EnhancedPiKVMoE(nn.Module):
         self.query_lora = LoRALayer(config['hidden_size'], config['hidden_size'], rank=rank, alpha=alpha)
         self.key_lora = LoRALayer(config['hidden_size'], config['hidden_size'], rank=rank, alpha=alpha)
         
-        # Cache size allocation
+        # Cache size allocation (one cache per expert)
         self.cache_sizes = self.pyramidal_cache_allocation()
+        while len(self.cache_sizes) < config['num_experts']:
+            self.cache_sizes.append(self.cache_sizes[-1] if self.cache_sizes else config['kv_cache_size'])
+        self.cache_sizes = self.cache_sizes[:config['num_experts']]
         
         # Initialize KV caches
         self.kv_caches = nn.ModuleList([
             KVCache(size, use_scheduling=use_cache_scheduling, 
-                   scheduling_policy=cache_scheduling_policy) 
+                   scheduling_policy=cache_scheduling_policy,
+                   hidden_size=config['hidden_size']) 
             for size in self.cache_sizes
         ])
         
@@ -508,11 +543,43 @@ class EnhancedPiKVMoE(nn.Module):
             print(f"Knowledge Distillation enabled with teacher hidden size: {self.teacher_hidden_size}")
         
         print(f"Enhanced PiKV MoE initialized with:")
-        print(f"  - Dynamic Load Balancing: {self.enable_dynamic_balancing}")
-        print(f"  - Async Execution: {self.enable_async_execution}")
-        print(f"  - Communication Optimization: {self.enable_communication_optimization}")
+        print(f"  - Dynamic Load Balancing: {self._enable_dynamic_balancing}")
+        print(f"  - Async Execution: {self._enable_async_execution}")
+        print(f"  - Communication Optimization: {self._enable_communication_optimization}")
         print(f"  - SmartMoE Integration: {self.enable_smartmoe}")
+
+        # Callable flag so both `model.enable_communication_optimization`
+        # (truthiness) and `model.enable_communication_optimization()` work.
+        self.enable_communication_optimization = _ToggleFlag(
+            self._enable_communication_optimization,
+            on_enable=self._ensure_communication_placer,
+        )
     
+    @property
+    def enable_dynamic_balancing(self):
+        return self._enable_dynamic_balancing
+    
+    @enable_dynamic_balancing.setter
+    def enable_dynamic_balancing(self, value):
+        self._enable_dynamic_balancing = bool(value)
+    
+    @property
+    def enable_async_execution(self):
+        return self._enable_async_execution
+    
+    @enable_async_execution.setter
+    def enable_async_execution(self, value):
+        self._enable_async_execution = bool(value)
+
+    def _ensure_communication_placer(self):
+        self._enable_communication_optimization = True
+        if not hasattr(self, 'communication_placer'):
+            self.communication_placer = CommunicationAwarePlacer(
+                num_experts=config['num_experts'],
+                world_size=self.world_size
+            )
+        print("Communication optimization enabled")
+
     def pyramidal_cache_allocation(self):
         """Calculate cache sizes using pyramidal allocation"""
         C1 = config['kv_cache_size']
@@ -652,6 +719,11 @@ class EnhancedPiKVMoE(nn.Module):
     def enable_dynamic_load_balancing(self):
         """Enable dynamic load balancing"""
         self.enable_dynamic_balancing = True
+        if not hasattr(self, 'load_balancer'):
+            self.load_balancer = DynamicLoadBalancer(
+                num_experts=config['num_experts'],
+                hidden_size=config['hidden_size']
+            )
         print("Dynamic load balancing enabled")
     
     def disable_dynamic_load_balancing(self):
@@ -662,6 +734,11 @@ class EnhancedPiKVMoE(nn.Module):
     def enable_async_execution_mode(self):
         """Enable async execution mode"""
         self.enable_async_execution = True
+        if not hasattr(self, 'async_manager'):
+            self.async_manager = AsyncExecutionManager(
+                num_experts=config['num_experts'],
+                world_size=self.world_size
+            )
         print("Async execution mode enabled")
     
     def disable_async_execution_mode(self):
@@ -669,14 +746,11 @@ class EnhancedPiKVMoE(nn.Module):
         self.enable_async_execution = False
         print("Async execution mode disabled")
     
-    def enable_communication_optimization(self):
-        """Enable communication optimization"""
-        self.enable_communication_optimization = True
-        print("Communication optimization enabled")
-    
     def disable_communication_optimization(self):
         """Disable communication optimization"""
-        self.enable_communication_optimization = False
+        self._enable_communication_optimization = False
+        if isinstance(self.enable_communication_optimization, _ToggleFlag):
+            self.enable_communication_optimization.set(False)
         print("Communication optimization disabled")
     
     def get_performance_metrics(self):
@@ -715,7 +789,8 @@ def create_enhanced_pikv_moe(
     enable_async_execution=True,
     enable_communication_optimization=True,
     enable_smartmoe=True,
-    world_size=1
+    world_size=1,
+    **kwargs
 ) -> EnhancedPiKVMoE:
     """
     Factory function to create enhanced PiKV MoE models with optional optimizations.
@@ -732,10 +807,25 @@ def create_enhanced_pikv_moe(
         enable_communication_optimization: Enable communication optimization
         enable_smartmoe: Enable SmartMoE integration
         world_size: Number of distributed processes
+        **kwargs: Accepted for README compatibility (e.g. load_balancing_strategy,
+                  execution_mode, communication_strategy, network_topology)
     
     Returns:
         EnhancedPiKVMoE instance
     """
+    # Map documented strategy kwargs onto enable flags when provided
+    if 'load_balancing_strategy' in kwargs:
+        strategy = kwargs['load_balancing_strategy']
+        if strategy in (None, 'none', 'None'):
+            enable_dynamic_balancing = False
+    if 'execution_mode' in kwargs:
+        mode = kwargs['execution_mode']
+        enable_async_execution = mode not in (None, 'sync', 'Sync')
+    if 'communication_strategy' in kwargs:
+        strategy = kwargs['communication_strategy']
+        if strategy in (None, 'none', 'None'):
+            enable_communication_optimization = False
+
     return EnhancedPiKVMoE(
         rank=rank,
         alpha=alpha,

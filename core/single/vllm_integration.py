@@ -47,10 +47,7 @@ except ImportError:
             pass
 
 from .config import config
-# from .kvcache_compression import KVCacheCompressor
-# from .cache_scheduling import CacheSchedulingManager, SchedulingPolicy
-# from .enhanced_pikv_moe import create_enhanced_pikv_moe
-# from .kvcache_centric_system import create_kvcache_centric_system
+from .cache_scheduling import CacheSchedulingManager, SchedulingPolicy
 
 
 class PiKVvLLMConfig:

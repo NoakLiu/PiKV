@@ -14,10 +14,10 @@ class KVCache(nn.Module):
     """
     KV Cache implementation with compression and streaming support.
     """
-    def __init__(self, size, use_scheduling=False, scheduling_policy=SchedulingPolicy.NONE):
+    def __init__(self, size, use_scheduling=False, scheduling_policy=SchedulingPolicy.NONE, hidden_size=None):
         super(KVCache, self).__init__()
         self.size = size
-        self.hidden_size = config['hidden_size']
+        self.hidden_size = hidden_size if hidden_size is not None else config['hidden_size']
         self.use_scheduling = use_scheduling
         
         # Initialize tensors

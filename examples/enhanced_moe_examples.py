@@ -18,11 +18,11 @@ import time
 import sys
 import os
 
-# Add the core directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'core', 'single'))
+# Add the repository root so package imports resolve
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from enhanced_pikv_moe import EnhancedPiKVMoE, create_enhanced_pikv_moe
-from cache_scheduling import SchedulingPolicy
+from core.single.enhanced_pikv_moe import EnhancedPiKVMoE, create_enhanced_pikv_moe
+from core.single.cache_scheduling import SchedulingPolicy
 
 
 def example_1_dynamic_load_balancing():

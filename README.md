@@ -351,7 +351,7 @@ results = await engine.generate(prompts)
 ```python
 # One-line setup for common use cases
 engine = create_pikv_vllm(
-    model_name="your-model",
+    model_name="microsoft/DialoGPT-medium",
     enable_compression=True,
     enable_scheduling=True
 )
@@ -555,7 +555,7 @@ The Mixture-of-Experts architecture enhanced with advanced features:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/PiKV.git
+git clone https://github.com/NoakLiu/PiKV.git
 cd PiKV
 
 # Install dependencies
