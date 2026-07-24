@@ -4,7 +4,7 @@
 
 *Revolutionary KV Cache System with Intelligent Routing and Advanced Compression for Large Language Models*
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-orange.svg)](https://pytorch.org/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -551,9 +551,9 @@ The Mixture-of-Experts architecture enhanced with advanced features:
 
 ### Prerequisites
 
-- **Python**: 3.10 or higher
-- **PyTorch**: 2.0 or higher  
-- **CUDA**: 11.8+ (for GPU acceleration)
+- **Python**: 3.11 or higher
+- **PyTorch**: 2.2–2.6
+- **CUDA**: 12.1+ recommended (install defaults to `pytorch-cuda=12.4`; override with `PYTORCH_CUDA=12.1`)
 - **Memory**: 8GB+ RAM (16GB+ recommended for large models)
 
 ### Quick Installation
@@ -563,11 +563,18 @@ The Mixture-of-Experts architecture enhanced with advanced features:
 git clone https://github.com/NoakLiu/PiKV.git
 cd PiKV
 
-# Install dependencies
-pip install -r requirements.txt
+# Recommended: one-shot conda/venv setup (2026)
+chmod +x install_pikv.sh
+./install_pikv.sh
+# or: USE_VENV=1 ./install_pikv.sh
+# or: conda env create -f environment.yml && conda activate pikv
 
-# Install PiKV in development mode
+# Manual install
+pip install -r requirements.txt
 pip install -e .
+
+# Eval corpus into data/
+python -m data.download_data
 ```
 
 ### CUDA Extensions (Optional)
@@ -590,17 +597,11 @@ chmod +x build_cuda.sh
 
 ### Key Dependencies
 
-```txt
-torch>=2.0.0
-transformers>=4.21.0
-accelerate>=0.20.0
-datasets>=2.0.0
-numpy>=1.21.0
-matplotlib>=3.5.0
-tqdm>=4.64.0
-cupy-cuda11x>=12.0.0  # For CUDA acceleration
-deepspeed>=0.12.0     # For DeepSpeed integration
-vllm>=0.2.0          # For vLLM integration
+Core stack: `requirements.txt` / `environment.yml`. Optional extras:
+
+```bash
+WITH_VLLM=1 WITH_DEEPSPEED=1 ./install_pikv.sh
+# or: pip install -e ".[vllm,deepspeed,peft]"
 ```
 
 ## Quick Start

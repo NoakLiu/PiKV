@@ -1,0 +1,30 @@
+# Conda environment for PiKV (2026)
+# Create:  conda env create -f environment.yml
+# Update:  conda env update -f environment.yml --prune
+# Activate: conda activate pikv
+#
+# PyTorch comes from the pytorch + nvidia channels (CUDA).
+# Remaining packages install from requirements-conda.txt (no pip torch).
+
+name: pikv
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip>=24.0
+  - pytorch>=2.2,<2.7
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.4
+  - numpy>=1.26,<2
+  - scipy>=1.11
+  - pandas>=2.1
+  - scikit-learn>=1.3
+  - matplotlib>=3.8
+  - tqdm
+  - pip:
+      - -r requirements-conda.txt
+      - -e .
