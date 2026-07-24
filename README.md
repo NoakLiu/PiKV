@@ -429,6 +429,8 @@ chmod +x examples/run_distributed_training.sh
 
 PiKV-FPGA offloads **metadata-intensive** stages to a CXL-attached SmartNIC while the GPU runs `f_enc` and `f_attn`. KV bodies live in disaggregated DDR; the FPGA keeps page tables, scores, and codec weights on chip (see [CXL-SpecKV](https://doi.org/10.1145/3748173.3779188)).
 
+**Platform:** AMD Alveo **U55C** (`xcu55c-fsvh2892-2L-e`), 300 MHz user clock, 16 GB HBM2, PCIe Gen4 x16 (XDMA) + optional CXL Type-3.mem. Bandwidth assumptions, BRAM budget, and E2E comparison vs CPU are documented in [`core/fpga/README.md`](core/fpga/README.md) and runnable via `python -m core.fpga.benchmark_hw`.
+
 ```
 GPU ──MMIO──► PiKV-CTRL ──► {D+, ScoreFuse, Codecρ, DMA} ──CXL.mem──► DDR pool
 GPU ◄──PCIe/CXL── packed {(K̂, V̂, idx)} for active pages P_t
@@ -909,6 +911,20 @@ compressed_keys, compressed_values = compressor(keys, values, importance)
 ### Running Benchmarks
 
 ```bash
+# Experimental protocol (GPU, batch, budgets, fairness, variance)
+# → downstream_tasks/EXPERIMENTAL_PROTOCOL.md
+
+# Systematic ablation: isolate routing / compression / scheduling / sharding
+python -m downstream_tasks.eval.ablation_study --preset factor
+
+# Per-component microbenchmarks
+python -m downstream_tasks.eval.routing_experiment
+python -m downstream_tasks.eval.compression_experiment
+python -m downstream_tasks.eval.scheduling_experiment
+
+# FPGA / CXL platform + bandwidth model + E2E vs CPU
+python -m core.fpga.benchmark_hw
+
 # Comprehensive model comparison
 python core/single/main.py
 

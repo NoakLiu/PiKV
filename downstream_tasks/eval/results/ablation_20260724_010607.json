@@ -1,0 +1,324 @@
+{
+  "protocol": "EXPERIMENTAL_PROTOCOL.md",
+  "preset": "factor",
+  "config": {
+    "hidden_size": 512,
+    "num_experts": 8,
+    "top_k": 2,
+    "batch_size": 1,
+    "seq_len": 512,
+    "decode_len": 128,
+    "concurrent_requests": 8,
+    "cache_size": 1024,
+    "compression_ratio": 0.5,
+    "num_shards": 4,
+    "device": "cpu",
+    "runs": 2,
+    "warmup": 1,
+    "seed": 42
+  },
+  "results": {
+    "baseline": {
+      "name": "baseline",
+      "latency_ms": 13.82907024526503,
+      "kv_mem_mb": 2.5,
+      "compression": 1.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.0,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.2890130126615986,
+        "routing": "off",
+        "compression": "off",
+        "scheduling": "off",
+        "sharding": false,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "routing_only": {
+      "name": "routing_only",
+      "latency_ms": 31.845507794059813,
+      "kv_mem_mb": 2.5,
+      "compression": 1.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.020794115164013013,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.07436718442477286,
+        "routing": "on",
+        "compression": "off",
+        "scheduling": "off",
+        "sharding": false,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "compression_only": {
+      "name": "compression_only",
+      "latency_ms": 16.129450566950254,
+      "kv_mem_mb": 1.25,
+      "compression": 2.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.0,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.0262578105321154,
+        "routing": "off",
+        "compression": "on",
+        "scheduling": "off",
+        "sharding": false,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "scheduling_only": {
+      "name": "scheduling_only",
+      "latency_ms": 5.39250519068446,
+      "kv_mem_mb": 0.50390625,
+      "compression": 1.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.0,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.188395832083188,
+        "routing": "off",
+        "compression": "off",
+        "scheduling": "on",
+        "sharding": false,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "sharding_only": {
+      "name": "sharding_only",
+      "latency_ms": 13.660971308127046,
+      "kv_mem_mb": 2.5,
+      "compression": 1.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.0,
+      "cross_shard_switches": 511.0,
+      "extras": {
+        "latency_std_ms": 0.06521618342958391,
+        "routing": "off",
+        "compression": "off",
+        "scheduling": "off",
+        "sharding": true,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "routing+compression": {
+      "name": "routing+compression",
+      "latency_ms": 35.43864324456081,
+      "kv_mem_mb": 1.25,
+      "compression": 2.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.020794115164013013,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.3187629918102175,
+        "routing": "on",
+        "compression": "on",
+        "scheduling": "off",
+        "sharding": false,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "routing+scheduling": {
+      "name": "routing+scheduling",
+      "latency_ms": 23.38816405972466,
+      "kv_mem_mb": 0.50390625,
+      "compression": 1.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.020794115164013013,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.14620579895563424,
+        "routing": "on",
+        "compression": "off",
+        "scheduling": "on",
+        "sharding": false,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "compression+scheduling": {
+      "name": "compression+scheduling",
+      "latency_ms": 8.264888063422404,
+      "kv_mem_mb": 0.251953125,
+      "compression": 2.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.0,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.05277867603581399,
+        "routing": "off",
+        "compression": "on",
+        "scheduling": "on",
+        "sharding": false,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    },
+    "full_stack": {
+      "name": "full_stack",
+      "latency_ms": 27.00349999940954,
+      "kv_mem_mb": 0.251953125,
+      "compression": 2.0,
+      "kv_hit": 0.0,
+      "load_imbalance": 0.020794115164013013,
+      "cross_shard_switches": 511.0,
+      "extras": {
+        "latency_std_ms": 0.17840624786913395,
+        "routing": "on",
+        "compression": "on",
+        "scheduling": "on",
+        "sharding": true,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 512,
+          "decode_len": 128,
+          "concurrent_requests": 8,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 2,
+          "warmup": 1,
+          "seed": 42
+        }
+      }
+    }
+  },
+  "synergy": {
+    "baseline_latency_ms": 13.82907024526503,
+    "single_module_gains_ms": {
+      "routing_only": -18.016437548794784,
+      "compression_only": -2.3003803216852248,
+      "scheduling_only": 8.43656505458057,
+      "sharding_only": 0.16809893713798374
+    },
+    "additive_expectation_ms": -11.712153878761455,
+    "full_stack_gain_ms": -13.174429754144512,
+    "synergy_ms": -1.4622758753830567,
+    "interpretation": "synergy_ms > 0: full stack beats naive sum of singles; < 0: interference / diminishing returns."
+  },
+  "gpu_name": "cpu"
+}

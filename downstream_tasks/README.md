@@ -1,8 +1,29 @@
 # Experiments
 
-<!-- ### PiKV Comprehensive Experiment Matrix  (accuracy values now given as ranges) -->
+> **Reproducibility:** full GPU / batch / concurrency / token-budget / fairness /
+> variance protocol → [`EXPERIMENTAL_PROTOCOL.md`](EXPERIMENTAL_PROTOCOL.md).  
+> Systematic isolation of routing / compression / scheduling / expert-sharding
+> (plus PiKV vs existing-methods combo) →
+> `python -m downstream_tasks.eval.ablation_study --preset factor`.  
+> FPGA / CXL platform + bandwidth + comparative E2E → [`../core/fpga/README.md`](../core/fpga/README.md)
+> and `python -m core.fpga.benchmark_hw`.  
+> Paper-facing summary → [`../docs/PAPER_SUPPLEMENT_EXPERIMENTS.md`](../docs/PAPER_SUPPLEMENT_EXPERIMENTS.md).
 
-*All numbers are averaged over three runs on **Mistral 7B**; ranges reflect the min‒max across runs.  
+## Default run settings (summary)
+
+| Knob | Value |
+|------|-------|
+| GPU | NVIDIA A100-SXM4-80GB |
+| Context | 4096 |
+| Prefill / decode budget | 512 / 128 tokens |
+| Concurrent requests | 8 |
+| Microbatch | 1 |
+| Runs | 3 (mean + min–max range) |
+| Seed | `42 + run_id` |
+
+---
+
+*All numbers below are averaged over three runs on **Mistral 7B**; ranges reflect the min‒max across runs.  
 Lower **Accuracy-Drop ↓**, **Latency ↓**, **KV Mem ↓** and higher **Compression ↑**, **KV Hit ↑** are better.*
 
 ---

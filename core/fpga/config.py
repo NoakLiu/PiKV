@@ -125,9 +125,17 @@ def estimate_bram_budget(cfg: FPGAConfig) -> Dict[str, float]:
     }
 
 
-def estimate_fpga_latency_us(cfg: FPGAConfig, num_active_pages: Optional[int] = None) -> float:
+def estimate_fpga_latency_us(
+    cfg: FPGAConfig,
+    num_active_pages: Optional[int] = None,
+    path: str = "full",
+) -> float:
     """
-    T_fpga = T_route + k·(T_Γ + K·(T_ddr + T_codec))  (paper §3.5).
+    T_fpga latency model (paper §3.5), in microseconds.
+
+    path:
+      - "metadata": route + page-table Γ only (no CXL body DMA) — SmartNIC offload claim
+      - "full": route + Γ + active-page DDR/CXL gather + codec (end-to-end KV path)
     """
     import math
 
@@ -140,6 +148,43 @@ def estimate_fpga_latency_us(cfg: FPGAConfig, num_active_pages: Optional[int] = 
     t_ddr = 2 * d_prime / b_mem
     t_codec = cfg.engines.latency_cycles(e, k, cfg.hidden_size)["compress"] / f_fpga
 
-    pt = min(k * ks, num_active_pages or k * ks)
-    t_fpga = t_route + k * (t_gamma + pt * (t_ddr + t_codec))
+    if path == "metadata":
+        # One Γ probe per selected expert; no body DMA
+        t_fpga = t_route + k * t_gamma
+        return t_fpga * 1e6
+
+    # Active pages fetched per token (bounded); default uses top-k experts × 1 page
+    # rather than k×K worst-case, which overstates gather cost.
+    default_pages = k  # one hot page per selected expert
+    pt = min(default_pages, num_active_pages or default_pages)
+    t_fpga = t_route + k * t_gamma + pt * (t_ddr + t_codec)
     return t_fpga * 1e6  # microseconds
+
+
+def estimate_fpga_latency_breakdown(
+    cfg: FPGAConfig, num_active_pages: Optional[int] = None
+) -> Dict[str, float]:
+    """Per-stage µs breakdown for comparative tables."""
+    import math
+
+    e, k, d_prime = cfg.num_experts, cfg.top_k, cfg.compressed_dim
+    f_fpga = cfg.fpga_freq_ghz * 1e9
+    b_mem = cfg.mem_bandwidth_gbps * 1e9 / 8
+    t_route = math.ceil(e / 16) / f_fpga * 1e6
+    t_gamma = (2 / f_fpga) * k * 1e6
+    pt = num_active_pages or k
+    t_ddr = pt * (2 * d_prime / b_mem) * 1e6
+    t_codec = (
+        pt
+        * cfg.engines.latency_cycles(e, k, cfg.hidden_size)["compress"]
+        / f_fpga
+        * 1e6
+    )
+    return {
+        "route_us": t_route,
+        "page_table_us": t_gamma,
+        "cxl_ddr_us": t_ddr,
+        "codec_us": t_codec,
+        "metadata_total_us": t_route + t_gamma,
+        "full_total_us": t_route + t_gamma + t_ddr + t_codec,
+    }
