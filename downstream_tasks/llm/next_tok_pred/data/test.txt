@@ -1,2 +1,0 @@
-The quick brown fox jumps over the lazy dog. This is a simple test sentence for training our language model.
-Machine learning is a fascinating field that combines statistics, computer science, and domain expertise.

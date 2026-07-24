@@ -60,7 +60,12 @@ def train_single_model(model_type='pikv'):
     tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     
     # Create dataset and dataloader with smaller batch size
-    dataset = TextDataset('data/test.txt', tokenizer, max_length=32)
+    from data.dataloader import resolve_data_path
+    try:
+        text_path = resolve_data_path("test.txt", "train.txt")
+    except FileNotFoundError:
+        text_path = "data/test.txt"
+    dataset = TextDataset(text_path, tokenizer, max_length=32)
     dataloader = DataLoader(dataset, batch_size=4, shuffle=True)  # Smaller batch size
     
     # Initialize model

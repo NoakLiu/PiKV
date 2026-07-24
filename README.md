@@ -14,6 +14,7 @@
 
 </div>
 
+- 🔥🔥🔥 07/21/2026 PiKV adds a shared **Data Download + Eval Dataloader** (`data/`): WikiText download, frozen `prompts_eval.txt`, and hooks into ablation / NTP evaluation.
 - 🔥🔥🔥 03/24/2026 PiKV adds **PiKV-FPGA** with **Verilog RTL** + **C host** (`libpikv_fpga.so`): MMIO `PiKV-CTRL`, `ScoreFuse`, `Codecρ`, page table `D+`, scheduler.
 - 🔥🔥🔥 10/18/2025 PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
 - 🔥🔥🔥 10/16/2025 PiKV now supports vLLM Integration with MoE KV Cache Optimization in vLLM inference engine.
@@ -39,6 +40,7 @@
 | CUDA kernels | ✅ | Routing / compression / scheduling |
 | DeepSpeed + DDP | ✅ | ZeRO-1/2/3, MoE expert parallelism |
 | vLLM integration | ✅ | Async server, KV-centric inference |
+| **Eval data pipeline** | 🆕 | root `data/` — `download_data` + DataLoader → ablation / NTP eval (`prompts_eval.txt`) |
 | **PiKV-FPGA** | 🆕 | RTL + AXI-Lite + CXL DMA + Vivado bitstream (`./build_fpga.sh bitstream`) |
 
 ---
@@ -100,6 +102,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 | **PiKV Cache Scheduling** | Dynamic cache management policies | H2OScheduler, StreamingLLMScheduler, QUESTScheduler, FlexGenScheduler, LRUScheduler, LRUPlusScheduler, AdaKVScheduler, DuoAttentionScheduler |
 | **PiKV CUDA Acceleration** | Custom kernels for maximum performance | Optimized routing, compression, and cache operations |
 | **PiKV-FPGA** | CXL-disaggregated metadata offload (paper §3.5) | `PiKV-CTRL` MMIO, `PageTableEngine`, `ScoreFuseEngine`, `CodecRhoEngine`, `SchedulerFPGAEngine` |
+| **Eval Data + Dataloader** | Frozen corpora & prompts for fair systems eval (`data/`) | `python -m data.download_data`, `create_eval_dataloader`, `prompts_to_hidden`, `eval_with_data` |
 
 ### Performance Metrics
 
@@ -916,6 +919,10 @@ compressed_keys, compressed_values = compressor(keys, values, importance)
 
 # Systematic ablation: isolate routing / compression / scheduling / sharding
 python -m downstream_tasks.eval.ablation_study --preset factor
+# Same ablation on frozen downloaded prompts (fair inputs)
+python -m data.download_data
+python -m downstream_tasks.eval.ablation_study --preset factor --from-data
+python -m downstream_tasks.eval.eval_with_data --max-prompts 32
 
 # Per-component microbenchmarks
 python -m downstream_tasks.eval.routing_experiment

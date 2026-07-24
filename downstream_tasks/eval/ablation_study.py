@@ -222,6 +222,8 @@ class AblationConfig:
     runs: int = 3
     warmup: int = 1
     seed: int = 42
+    from_data: bool = False
+    data_dir: Optional[str] = None
 
 
 @dataclass
@@ -260,6 +262,36 @@ def _make_stack(
     return router.to(device), compressor.to(device) if isinstance(compressor, nn.Module) else compressor, scheduler, shard
 
 
+def _load_prefills(cfg: AblationConfig) -> Optional[torch.Tensor]:
+    """Optional frozen prefills from download_data prompts (fairness)."""
+    if not cfg.from_data:
+        return None
+    try:
+        from data.dataloader import (
+            iter_eval_prompts,
+            prompts_to_hidden,
+        )
+    except ImportError:
+        print("WARN: data package not importable; using synthetic inputs")
+        return None
+    prompts = list(
+        iter_eval_prompts(data_dir=cfg.data_dir, max_prompts=cfg.concurrent_requests)
+    )
+    if not prompts:
+        print("WARN: no prompts found; using synthetic inputs")
+        return None
+    # Pad prompt list to concurrency
+    while len(prompts) < cfg.concurrent_requests:
+        prompts.append(prompts[len(prompts) % max(len(prompts), 1)])
+    return prompts_to_hidden(
+        prompts[: cfg.concurrent_requests],
+        hidden_size=cfg.hidden_size,
+        seq_len=cfg.seq_len,
+        device=cfg.device,
+        seed=cfg.seed,
+    )
+
+
 def _one_request(
     cfg: AblationConfig,
     router,
@@ -267,10 +299,14 @@ def _one_request(
     scheduler,
     shard: ExpertShardStore,
     req_id: int,
+    prefill_x: Optional[torch.Tensor] = None,
 ) -> Dict[str, float]:
     device = torch.device(cfg.device)
     # Prefill
-    x = torch.randn(cfg.batch_size, cfg.seq_len, cfg.hidden_size, device=device)
+    if prefill_x is not None:
+        x = prefill_x[req_id % prefill_x.size(0)].unsqueeze(0).to(device)
+    else:
+        x = torch.randn(cfg.batch_size, cfg.seq_len, cfg.hidden_size, device=device)
     idx, w, aux = router(x)
     # Expert outputs proxy
     keys = x
@@ -318,6 +354,7 @@ def run_variant(
     compression: str = "off",
     scheduling: str = "off",
     sharding: bool = False,
+    prefills: Optional[torch.Tensor] = None,
 ) -> RunMetrics:
     latencies = []
     metrics_acc = []
@@ -332,7 +369,9 @@ def run_variant(
         t0 = time.perf_counter()
         last = {}
         for req in range(cfg.concurrent_requests):
-            last = _one_request(cfg, router, compressor, scheduler, shard, req)
+            last = _one_request(
+                cfg, router, compressor, scheduler, shard, req, prefill_x=prefills
+            )
         if cfg.device.startswith("cuda") and torch.cuda.is_available():
             torch.cuda.synchronize()
         elapsed_ms = (time.perf_counter() - t0) * 1000.0 / cfg.concurrent_requests
@@ -360,6 +399,7 @@ def run_variant(
             "compression": compression,
             "scheduling": scheduling,
             "sharding": sharding,
+            "from_data": cfg.from_data,
             "protocol": asdict(cfg),
         },
     )
@@ -407,32 +447,35 @@ def synergy_report(results: Dict[str, RunMetrics]) -> Dict[str, Any]:
     return out
 
 
-def build_preset(preset: str, cfg: AblationConfig) -> Dict[str, RunMetrics]:
+def build_preset(
+    preset: str, cfg: AblationConfig, prefills: Optional[torch.Tensor] = None
+) -> Dict[str, RunMetrics]:
     results: Dict[str, RunMetrics] = {}
-    results["baseline"] = run_variant("baseline", cfg)
+    kw = {"prefills": prefills}
+    results["baseline"] = run_variant("baseline", cfg, **kw)
 
     if preset in ("routing", "factor", "combined"):
-        results["routing_only"] = run_variant("routing_only", cfg, routing="on")
+        results["routing_only"] = run_variant("routing_only", cfg, routing="on", **kw)
     if preset in ("compression", "factor", "combined"):
         results["compression_only"] = run_variant(
-            "compression_only", cfg, compression="on"
+            "compression_only", cfg, compression="on", **kw
         )
     if preset in ("scheduling", "factor", "combined"):
         results["scheduling_only"] = run_variant(
-            "scheduling_only", cfg, scheduling="on"
+            "scheduling_only", cfg, scheduling="on", **kw
         )
     if preset in ("sharding", "factor", "combined"):
-        results["sharding_only"] = run_variant("sharding_only", cfg, sharding=True)
+        results["sharding_only"] = run_variant("sharding_only", cfg, sharding=True, **kw)
 
     if preset in ("combined", "factor"):
         results["routing+compression"] = run_variant(
-            "routing+compression", cfg, routing="on", compression="on"
+            "routing+compression", cfg, routing="on", compression="on", **kw
         )
         results["routing+scheduling"] = run_variant(
-            "routing+scheduling", cfg, routing="on", scheduling="on"
+            "routing+scheduling", cfg, routing="on", scheduling="on", **kw
         )
         results["compression+scheduling"] = run_variant(
-            "compression+scheduling", cfg, compression="on", scheduling="on"
+            "compression+scheduling", cfg, compression="on", scheduling="on", **kw
         )
         # Existing-methods combo: compression+scheduling only (no PiKV routing/shard)
         results["existing_methods_combo"] = run_variant(
@@ -442,6 +485,7 @@ def build_preset(preset: str, cfg: AblationConfig) -> Dict[str, RunMetrics]:
             compression="on",
             scheduling="on",
             sharding=False,
+            **kw,
         )
         # PiKV stack: cache-aware routing + compression + scheduling + sharding
         results["pikv_stack"] = run_variant(
@@ -451,6 +495,7 @@ def build_preset(preset: str, cfg: AblationConfig) -> Dict[str, RunMetrics]:
             compression="on",
             scheduling="on",
             sharding=True,
+            **kw,
         )
         results["full_stack"] = results["pikv_stack"]
     return results
@@ -483,6 +528,12 @@ def main():
     parser.add_argument("--decode-len", type=int, default=128)
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--out-dir", default=None)
+    parser.add_argument(
+        "--from-data",
+        action="store_true",
+        help="Use frozen prompts from download_data (prompts_eval.txt) for fair inputs",
+    )
+    parser.add_argument("--data-dir", default=None, help="Corpus dir (default: <repo>/data)")
     args = parser.parse_args()
 
     device = args.device
@@ -496,17 +547,25 @@ def main():
         seq_len=args.seq_len,
         decode_len=args.decode_len,
         concurrent_requests=args.concurrency,
+        from_data=args.from_data,
+        data_dir=args.data_dir,
     )
 
     print("PiKV Ablation Study")
     print("=" * 60)
     print(
         f"device={cfg.device}  prefill={cfg.seq_len}  decode={cfg.decode_len}  "
-        f"concurrency={cfg.concurrent_requests}  runs={cfg.runs}"
+        f"concurrency={cfg.concurrent_requests}  runs={cfg.runs}  from_data={cfg.from_data}"
     )
-    print("See EXPERIMENTAL_PROTOCOL.md for fairness controls.\n")
+    print("See EXPERIMENTAL_PROTOCOL.md and data/README.md.\n")
 
-    results = build_preset(args.preset, cfg)
+    prefills = _load_prefills(cfg)
+    if cfg.from_data and prefills is not None:
+        print(f"Loaded frozen prefills: {tuple(prefills.shape)} from download_data prompts\n")
+    elif cfg.from_data:
+        print("from_data requested but prompts missing — falling back to synthetic tensors\n")
+
+    results = build_preset(args.preset, cfg, prefills=prefills)
     for name, m in results.items():
         if name == "full_stack":
             continue

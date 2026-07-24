@@ -1,0 +1,21 @@
+{
+  "dataset": "wikitext/wikitext-2-raw-v1",
+  "out_dir": "/Users/dongliu/Documents/GitHub/PiKV/downstream_tasks/llm/next_tok_pred/data",
+  "train_chars": 10845453,
+  "test_chars": 1279840,
+  "num_eval_prompts": 16,
+  "prompt_chars": 200,
+  "seed": 42,
+  "created_utc": "2026-07-24T13:01:58.881674+00:00",
+  "files": {
+    "train": "/Users/dongliu/Documents/GitHub/PiKV/downstream_tasks/llm/next_tok_pred/data/train.txt",
+    "test": "/Users/dongliu/Documents/GitHub/PiKV/downstream_tasks/llm/next_tok_pred/data/test.txt",
+    "prompts_eval": "/Users/dongliu/Documents/GitHub/PiKV/downstream_tasks/llm/next_tok_pred/data/prompts_eval.txt"
+  },
+  "protocol": {
+    "prefill_tokens": 512,
+    "decode_tokens": 128,
+    "context": 4096,
+    "note": "Use prompts_eval.txt as frozen prompts in EXPERIMENTAL_PROTOCOL.md"
+  }
+}

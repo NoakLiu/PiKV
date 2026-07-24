@@ -1,0 +1,105 @@
+{
+  "protocol": "EXPERIMENTAL_PROTOCOL.md",
+  "preset": "routing",
+  "config": {
+    "hidden_size": 512,
+    "num_experts": 8,
+    "top_k": 2,
+    "batch_size": 1,
+    "seq_len": 32,
+    "decode_len": 4,
+    "concurrent_requests": 2,
+    "cache_size": 1024,
+    "compression_ratio": 0.5,
+    "num_shards": 4,
+    "device": "cpu",
+    "runs": 1,
+    "warmup": 1,
+    "seed": 42,
+    "from_data": true,
+    "data_dir": null
+  },
+  "results": {
+    "baseline": {
+      "name": "baseline",
+      "latency_ms": 0.1886460231617093,
+      "kv_mem_mb": 0.12890625,
+      "compression": 1.0,
+      "kv_hit": 5.555555555555555,
+      "load_imbalance": 0.0,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.0,
+        "routing": "off",
+        "compression": "off",
+        "scheduling": "off",
+        "sharding": false,
+        "from_data": true,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 32,
+          "decode_len": 4,
+          "concurrent_requests": 2,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 1,
+          "warmup": 1,
+          "seed": 42,
+          "from_data": true,
+          "data_dir": null
+        }
+      }
+    },
+    "routing_only": {
+      "name": "routing_only",
+      "latency_ms": 1.2327705044299364,
+      "kv_mem_mb": 0.12890625,
+      "compression": 1.0,
+      "kv_hit": 5.555555555555555,
+      "load_imbalance": 0.01040239116415423,
+      "cross_shard_switches": 0.0,
+      "extras": {
+        "latency_std_ms": 0.0,
+        "routing": "on",
+        "compression": "off",
+        "scheduling": "off",
+        "sharding": false,
+        "from_data": true,
+        "protocol": {
+          "hidden_size": 512,
+          "num_experts": 8,
+          "top_k": 2,
+          "batch_size": 1,
+          "seq_len": 32,
+          "decode_len": 4,
+          "concurrent_requests": 2,
+          "cache_size": 1024,
+          "compression_ratio": 0.5,
+          "num_shards": 4,
+          "device": "cpu",
+          "runs": 1,
+          "warmup": 1,
+          "seed": 42,
+          "from_data": true,
+          "data_dir": null
+        }
+      }
+    }
+  },
+  "synergy": {
+    "baseline_latency_ms": 0.1886460231617093,
+    "single_module_gains_ms": {
+      "routing_only": -1.044124481268227
+    },
+    "single_module_mem_save_mb": {
+      "routing_only": 0.0
+    },
+    "additive_expectation_ms": -1.044124481268227
+  },
+  "gpu_name": "cpu"
+}

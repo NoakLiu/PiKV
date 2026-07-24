@@ -1,0 +1,17 @@
+{
+  "model": "linear",
+  "device": "cpu",
+  "data_dir": "/Users/dongliu/Documents/GitHub/PiKV/data",
+  "prefill_tokens": 32,
+  "max_prompts": 4,
+  "hidden_size": 64,
+  "metrics": {
+    "ce_loss": 11.118424892425537,
+    "token_accuracy": 0.0,
+    "num_tokens": 128,
+    "wall_s": 0.010813249973580241,
+    "tokens_per_s": 11837.32923152053
+  },
+  "created_utc": "2026-07-24T13:04:57.724967+00:00",
+  "protocol": "EXPERIMENTAL_PROTOCOL.md + data/README.md"
+}

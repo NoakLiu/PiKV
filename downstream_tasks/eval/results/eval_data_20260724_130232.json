@@ -1,0 +1,17 @@
+{
+  "model": "linear",
+  "device": "cpu",
+  "data_dir": "/Users/dongliu/Documents/GitHub/PiKV/downstream_tasks/llm/next_tok_pred/data",
+  "prefill_tokens": 64,
+  "max_prompts": 8,
+  "hidden_size": 128,
+  "metrics": {
+    "ce_loss": 10.921510577201843,
+    "token_accuracy": 0.0,
+    "num_tokens": 512,
+    "wall_s": 0.026009291876107454,
+    "tokens_per_s": 19685.272572542865
+  },
+  "created_utc": "2026-07-24T13:02:32.960787+00:00",
+  "protocol": "EXPERIMENTAL_PROTOCOL.md + data/README.md"
+}

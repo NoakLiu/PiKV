@@ -36,9 +36,34 @@ Override GPU in scripts via `CUDA_VISIBLE_DEVICES` and record the value in the r
 combination sees the **same** attention footprint. Do not retune budgets per
 compressor or scheduler.
 
+## 2.5 Data download & dataloader (fair prompts)
+
+All evaluation that claims fairness must use the **same frozen prompts**.
+
+```bash
+# Download WikiText-2 → data/ (repo root)
+python -m data.download_data
+
+# NTP / CE eval on frozen prompts
+python -m downstream_tasks.eval.eval_with_data --max-prompts 32
+
+# Module ablation with identical hidden inputs from those prompts
+python -m downstream_tasks.eval.ablation_study --preset factor --from-data
+```
+
+Details: [`../data/README.md`](../data/README.md).
+
+| Artifact | Role |
+|----------|------|
+| `data/train.txt` / `data/test.txt` | Sliding-window NTP training |
+| `data/prompts_eval.txt` | One prompt/line — **do not regenerate mid-comparison** |
+| `data/manifest.json` | Dataset id, seed, sizes |
+| `create_eval_dataloader` | Prefill=512 tokenized batches |
+| `prompts_to_hidden` | Seeded embed → identical `[B,S,H]` for ablations |
+
 ## 3. Fairness controls
 
-1. **Identical prompts** — reuse a frozen prompt file (`downstream_tasks/llm/next_tok_pred/data/test.txt` or LongBench subset).
+1. **Identical prompts** — reuse a frozen prompt file (`data/prompts_eval.txt` from `python -m data.download_data`, or LongBench subset).
 2. **Identical generation length** — hard cap `max_new_tokens=128`; no early-exit differences counted as latency wins.
 3. **Identical concurrency** — always 8 outstanding requests; no queue draining tricks.
 4. **No DVFS surprises** — lock GPU clocks when possible (`nvidia-smi -lgc`); otherwise report variance.

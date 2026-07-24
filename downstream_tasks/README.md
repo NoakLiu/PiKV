@@ -1,5 +1,9 @@
 # Experiments
 
+> **Data:** download frozen WikiText prompts → [`../data/README.md`](../data/README.md);
+> `python -m data.download_data` then
+> `python -m downstream_tasks.eval.eval_with_data` /
+> `ablation_study --from-data`.  
 > **Reproducibility:** full GPU / batch / concurrency / token-budget / fairness /
 > variance protocol → [`EXPERIMENTAL_PROTOCOL.md`](EXPERIMENTAL_PROTOCOL.md).  
 > Systematic isolation of routing / compression / scheduling / expert-sharding
