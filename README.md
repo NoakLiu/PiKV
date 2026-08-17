@@ -10,10 +10,11 @@
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-[Features](#-key-features) • [EPiKV-MoE](#-epikv-moe) • [FPGA Offload](#-fpga-hardware-aware-offload) • [vLLM Integration](#-vllm-integration) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
+[Features](#-key-features) • [EPiKV-MoE](#-epikv-moe) • [Fused MoE Training](#-fused-moe-training-systems-laer--moeblaze--fsmoe) • [FPGA Offload](#-fpga-hardware-aware-offload) • [vLLM Integration](#-vllm-integration) • [Installation](#-installation) • [Examples](#-usage-examples) • [Advanced](#-advanced-features) • [Benchmarks](#-benchmarks)
 
 </div>
 
+- 🔥🔥🔥 08/16/2026 PiKV fuses **LAER-MoE** (FSEP + load-adaptive re-layout), **MoEBlaze** (activation/weight pipelines), and **FSMoE** (elastic route/comm/compute) into our training stack — see [Fused MoE Training Systems](#-fused-moe-training-systems-laer--moeblaze--fsmoe).
 - 🔥🔥🔥 07/21/2026 PiKV adds a shared **Data Download + Eval Dataloader** (`data/`): WikiText download, frozen `prompts_eval.txt`, and hooks into ablation / NTP evaluation.
 - 🔥🔥🔥 03/24/2026 PiKV adds **PiKV-FPGA** with **Verilog RTL** + **C host** (`libpikv_fpga.so`): MMIO `PiKV-CTRL`, `ScoreFuse`, `Codecρ`, page table `D+`, scheduler.
 - 🔥🔥🔥 10/18/2025 PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
@@ -39,6 +40,7 @@
 | PiKV Scheduling | ✅ | H2O, QUEST, AdaKV, Duo, Belady-Approx, Hazard-LRU |
 | CUDA kernels | ✅ | Routing / compression / scheduling |
 | DeepSpeed + DDP | ✅ | ZeRO-1/2/3, MoE expert parallelism |
+| **Fused MoE Training** | 🆕 | LAER-MoE (FSEP) + MoEBlaze + FSMoE (`create_fused_moe_training`) |
 | vLLM integration | ✅ | Async server, KV-centric inference |
 | **Eval data pipeline** | 🆕 | root `data/` — `download_data` + DataLoader → ablation / NTP eval (`prompts_eval.txt`) |
 | **PiKV-FPGA** | 🆕 | RTL + AXI-Lite + CXL DMA + Vivado bitstream (`./build_fpga.sh bitstream`) |
@@ -53,6 +55,7 @@
 - [KVCache-Centric System Optimization](#-kvcache-centric-system-optimization)
 - [vLLM Integration](#-vllm-integration)
 - [DeepSpeed Integration](#-deepspeed-integration)
+- [Fused MoE Training Systems](#-fused-moe-training-systems-laer--moeblaze--fsmoe)
 - [Distributed Training](#-distributed-training)
 - [FPGA Hardware-Aware Offload](#-fpga-hardware-aware-offload)
 - [System Architecture](#️-system-architecture)
@@ -97,6 +100,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 | **KVCache-Centric System** | Advanced memory management and scheduling optimizations | PagedKVCache, DistributedKVCachePool, CacheAwarePrefillScheduler, LoadBalanceDecodingScheduler |
 | **vLLM Integration** | Seamless integration with vLLM inference engine | PiKVvLLMEngine, PiKVvLLMServer, PiKVvLLMConfig |
 | **DeepSpeed Integration** | Enterprise-grade distributed training with ZeRO optimization | PiKVDeepSpeedManager, ZeRO-1/2/3, CPU offloading, MoE expert parallelism |
+| **Fused MoE Training** | Paper-fused sparse MoE training systems | LAER-MoE FSEP + re-layout, MoEBlaze pipelines, FSMoE elastic stages |
 | **Distributed Training** | Enhanced distributed training with error handling and monitoring | DistributedPiKVManager, DistributedPiKVMoE, Performance monitoring, Advanced checkpointing |
 | **PiKV Compression** | Unified compression with multiple strategies | LoRACompressor, PyramidCompressor, SVDCompressor, QuantizedCompressor, FastVCompressor, PiKVCompressor |
 | **PiKV Cache Scheduling** | Dynamic cache management policies | H2OScheduler, StreamingLLMScheduler, QUESTScheduler, FlexGenScheduler, LRUScheduler, LRUPlusScheduler, AdaKVScheduler, DuoAttentionScheduler |
@@ -403,6 +407,51 @@ print(f"Memory usage: {metrics['memory_usage']:.2f}GB")
 print(f"Throughput: {metrics['throughput']:.2f} elem/s")
 ```
 
+## Fused MoE Training Systems (LAER · MoEBlaze · FSMoE)
+
+PiKV now ships a **fused training stack** that implements the core system designs from three recent MoE-training papers and can enable them individually or together:
+
+| System | Venue | What we implement |
+|--------|-------|-------------------|
+| **LAER-MoE** | ASPLOS 2026 | **Fully Sharded Expert Parallel (FSEP)** — restore expert weights at expert granularity via All-to-All / all_gather; **load-adaptive re-layout planner** remaps expert compute homes under token skew |
+| **MoEBlaze** | MLSys 2026 | Break the MoE **memory wall**: selective **activation cache pipeline** (GPU double-buffer + CPU spill) and **expert-weight access pipeline** (prefetch / stage next experts while computing) |
+| **FSMoE** | ASPLOS 2025 | **Elastic multi-stage** training — decouple Token Routing ↔ Communication ↔ Expert Compute; adapt stage worker budgets to backlog so fixed parallel layouts stop wasting FLOPs |
+
+### Quick start
+
+```python
+from core.distributed import (
+    create_fused_moe_training,
+    create_laer_moe,
+    create_moeblaze,
+    create_fsmoe,
+)
+
+# All three fused in one model
+model = create_fused_moe_training(
+    hidden_size=512,
+    num_experts=8,
+    top_k=2,
+    enable_laer=True,
+    enable_moeblaze=True,
+    enable_fsmoe=True,
+)
+x = torch.randn(4, 64, 512)
+y = model(x)
+metrics = model.get_metrics()  # FSEP restores, re-layouts, pipeline hits, FSMoE workers
+
+# Or use each paper stack alone
+laer = create_laer_moe(hidden_size=512, num_experts=8)
+blaze = create_moeblaze(hidden_size=512, num_experts=8)
+fs = create_fsmoe(hidden_size=512, num_experts=8)
+```
+
+```bash
+PYTHONPATH=. python examples/fused_moe_training_example.py
+```
+
+**Modules:** `core/distributed/laer_moe.py`, `moeblaze.py`, `fsmoe.py`, `fused_moe_training.py`.
+
 ## Distributed Training
 
 ```bash
@@ -600,7 +649,7 @@ chmod +x build_cuda.sh
 Core stack: `requirements.txt` / `environment.yml`. Optional extras:
 
 ```bash
-WITH_VLLM=1 WITH_DEEPSPEED=1 ./install_pikv.sh
+xWITH_VLLM=1 WITH_DEEPSPEED=1 ./install_pikv.sh
 # or: pip install -e ".[vllm,deepspeed,peft]"
 ```
 

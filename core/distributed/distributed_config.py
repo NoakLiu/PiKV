@@ -20,4 +20,11 @@ distributed_config = {
     'gradient_accumulation_steps': 1,  # 梯度累积步数
     'checkpoint_interval': 100,  # 检查点保存间隔
     'use_mixed_precision': True,  # 是否使用混合精度训练
+    # Fused MoE training systems (LAER / MoEBlaze / FSMoE)
+    'enable_laer_fsep': True,  # Fully Sharded Expert Parallel + adaptive re-layout
+    'enable_moeblaze': True,  # activation + expert-weight pipelines
+    'enable_fsmoe': True,  # elastic route/comm/compute staging
+    'laer_relayout_interval': 32,
+    'moeblaze_prefetch_depth': 2,
+    'fsmoe_adapt_interval': 4,
 } 

@@ -1,0 +1,55 @@
+# Bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging / install
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~
+
+# Logs / local runs
+*.log
+wandb/
+runs/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Local env secrets
+.env
+.env.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage / test
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# CUDA / FPGA build artifacts (keep sources)
+core/cuda/build/
+*.o
+*.a
+*.d
