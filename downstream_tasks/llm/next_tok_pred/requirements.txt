@@ -3,4 +3,4 @@ transformers>=4.40.0
 datasets>=2.19.0
 tqdm>=4.66.0
 accelerate>=0.30.0
-# Prefer installing from repo root: pip install -r ../../../../requirements.txt
+# Prefer installing from repo root: pip install -r ../../../../setup/requirements.txt

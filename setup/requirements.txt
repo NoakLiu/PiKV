@@ -1,6 +1,7 @@
 # PiKV core dependencies (2026)
-# Install: pip install -r requirements.txt && pip install -e .
-# GPU PyTorch: prefer conda/pip wheels from pytorch.org (see scripts/install_pikv.sh / environment.yml)
+# Install from repo root:
+#   pip install -r setup/requirements.txt && pip install -e .
+# GPU PyTorch: scripts/install_pikv.sh or setup/environment.yml
 
 # --- Deep learning ---
 torch>=2.2.0,<2.7
@@ -32,6 +33,6 @@ matplotlib>=3.8.0
 evaluate>=0.4.0
 
 # Optional heavy stacks (install separately if needed):
-#   pip install deepspeed          # distributed training
-#   pip install "vllm>=0.5.0"      # vLLM integration path
-#   pip install peft               # LoRA fine-tuning extras
+#   pip install deepspeed
+#   pip install "vllm>=0.5.0"
+#   pip install peft

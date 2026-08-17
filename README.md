@@ -617,10 +617,10 @@ cd PiKV
 chmod +x scripts/*.sh
 ./scripts/install_pikv.sh
 # or: USE_VENV=1 ./scripts/install_pikv.sh
-# or: conda env create -f environment.yml && conda activate pikv
+# or: conda env create -f setup/environment.yml && conda activate pikv
 
 # Manual install
-pip install -r requirements.txt
+pip install -r setup/requirements.txt
 pip install -e .
 
 # Eval corpus into data/
@@ -647,7 +647,7 @@ chmod +x scripts/build_cuda.sh
 
 ### Key Dependencies
 
-Core stack: `requirements.txt` / `environment.yml`. Optional extras:
+Core stack: `setup/requirements.txt` / `setup/environment.yml`. Optional extras:
 
 ```bash
 WITH_VLLM=1 WITH_DEEPSPEED=1 ./scripts/install_pikv.sh

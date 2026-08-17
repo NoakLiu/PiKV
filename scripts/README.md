@@ -2,7 +2,7 @@
 
 | Script | Purpose |
 |--------|---------|
-| `install_pikv.sh` | Conda/venv + deps + editable install |
+| `install_pikv.sh` | Conda/venv + deps from `setup/` + editable install |
 | `build_cuda.sh` | Build CUDA kernels (routing + **full compression** + scheduling) |
 | `build_fpga.sh` | FPGA host / RTL sim / Vivado bitstream |
 | `run_distributed_training.sh` | torchrun DeepSpeed / MoE training modes |

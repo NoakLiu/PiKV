@@ -1,10 +1,11 @@
 # Conda environment for PiKV (2026)
-# Create:  conda env create -f environment.yml
-# Update:  conda env update -f environment.yml --prune
+# Create:  conda env create -f setup/environment.yml
+# Update:  conda env update -f setup/environment.yml --prune
 # Activate: conda activate pikv
 #
-# PyTorch comes from the pytorch + nvidia channels (CUDA).
-# Remaining packages install from requirements-conda.txt (no pip torch).
+# PyTorch from pytorch + nvidia channels (CUDA).
+# Remaining packages from requirements-conda.txt (no pip torch).
+# Editable install points at the repo root (..).
 
 name: pikv
 channels:
@@ -27,4 +28,4 @@ dependencies:
   - tqdm
   - pip:
       - -r requirements-conda.txt
-      - -e .
+      - -e ..

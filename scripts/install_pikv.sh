@@ -80,10 +80,11 @@ else
 fi
 
 echo "==> Installing Python deps..."
-if [[ "$SKIP_TORCH" != "1" ]] && [[ -f "$ROOT/requirements-conda.txt" ]]; then
-  pip install -r "$ROOT/requirements-conda.txt"
+SETUP_DIR="$ROOT/setup"
+if [[ "$SKIP_TORCH" != "1" ]] && [[ -f "$SETUP_DIR/requirements-conda.txt" ]]; then
+  pip install -r "$SETUP_DIR/requirements-conda.txt"
 else
-  pip install -r "$ROOT/requirements.txt"
+  pip install -r "$SETUP_DIR/requirements.txt"
 fi
 
 echo "==> Installing PiKV (editable)..."
@@ -122,6 +123,7 @@ if [[ "$USE_VENV" == "1" ]]; then
 else
   echo "  Activate:  conda activate $ENV_NAME"
 fi
+echo "  Setup:     setup/  (requirements, environment.yml, setup.py)"
 echo "  CUDA:      ./scripts/build_cuda.sh release"
 echo "  Data:      python -m data.download_data"
 echo "  Eval:      python -m downstream_tasks.eval.eval_with_data --max-prompts 32"

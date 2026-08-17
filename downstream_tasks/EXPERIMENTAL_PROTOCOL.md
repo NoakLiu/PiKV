@@ -10,7 +10,7 @@ This document states the **exact settings** used for systems tables in
 |---------|-------------------|--------|
 | GPU | **NVIDIA A100-SXM4-80GB** | Single GPU unless `world_size>1` |
 | CUDA | 12.1+ | Match host driver |
-| PyTorch | ≥ 2.0 | See `setup.py` / `requirements.txt` |
+| PyTorch | ≥ 2.0 | See `setup/setup.py` / `setup/requirements.txt` |
 | Host CPU | AMD EPYC / Intel Xeon (any modern) | Used for dataloader + FPGA host |
 | FPGA (optional path) | AMD Alveo U55C (`xcu55c-fsvh2892-2L-e`) | See `core/fpga/README.md` |
 | OS | Ubuntu 22.04 | Recommended |
