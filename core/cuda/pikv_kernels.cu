@@ -106,8 +106,9 @@ __global__ void top_k_experts_kernel(
     }
 }
 
-// CUDA kernels for compression
-__global__ void lora_compression_kernel(
+// CUDA kernels for compression (legacy tensor API; full KV compression lives in
+// pikv_compression_kernel.cu — LoRA/Quant/Pyramid/SVD/Hybrid/Quality)
+__global__ void lora_compression_legacy_kernel(
     const float* input,
     float* output,
     const float* lora_A,
@@ -147,7 +148,7 @@ __global__ void lora_compression_kernel(
     output[output_idx] = result * (alpha / rank);
 }
 
-__global__ void pyramid_compression_kernel(
+__global__ void pyramid_compression_legacy_kernel(
     const float* input,
     float* output,
     const float* encoder_weights,
@@ -234,7 +235,7 @@ __global__ void h2o_cache_eviction_kernel(
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int cache_idx = idx / hidden_size;
-    int hidden_idx = idx % hidden_idx;
+    int hidden_idx = idx % hidden_size;
     
     if (cache_idx >= cache_size) {
         return;
@@ -322,7 +323,7 @@ void lora_compression_cuda(
         (batch_size * seq_len * hidden_size + BLOCK_SIZE - 1) / BLOCK_SIZE
     );
     
-    lora_compression_kernel<<<grid_dim, block_dim, 0, stream>>>(
+    lora_compression_legacy_kernel<<<grid_dim, block_dim, 0, stream>>>(
         input, output, lora_A, lora_B,
         batch_size, seq_len, hidden_size, rank, alpha
     );
@@ -345,7 +346,7 @@ void pyramid_compression_cuda(
         (batch_size * seq_len * hidden_size + BLOCK_SIZE - 1) / BLOCK_SIZE
     );
     
-    pyramid_compression_kernel<<<grid_dim, block_dim, 0, stream>>>(
+    pyramid_compression_legacy_kernel<<<grid_dim, block_dim, 0, stream>>>(
         input, output, encoder_weights, decoder_weights,
         batch_size, seq_len, hidden_size, num_levels
     );

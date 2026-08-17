@@ -20,7 +20,7 @@
 ```
 downstream_tasks/llm/next_tok_pred/
 ├── train_distributed.py      # 分布式训练主脚本
-├── run_distributed.sh        # 启动脚本
+├── (moved) ../../../scripts/run_ntp_distributed.sh
 └── README_distributed.md     # 本文档
 ```
 
@@ -31,13 +31,11 @@ downstream_tasks/llm/next_tok_pred/
 这是PyTorch官方推荐的分布式训练启动方式：
 
 ```bash
-# 进入训练目录
-cd downstream_tasks/llm/next_tok_pred
-
-# 使用启动脚本（自动检测GPU数量）
-./run_distributed.sh 10 5 pikv
+# 从仓库根目录
+./scripts/run_ntp_distributed.sh 10 5 pikv
 
 # 或者直接使用torchrun
+cd downstream_tasks/llm/next_tok_pred
 torchrun --nproc_per_node=4 train_distributed.py --epochs 10 --save_every 5 --model_type pikv
 ```
 
@@ -148,7 +146,7 @@ torchrun --nnodes=2 --node_rank=1 --master_addr=192.168.1.100 --master_port=2950
 ## 示例输出
 
 ```bash
-$ ./run_distributed.sh 5 2 pikv
+$ ./scripts/run_ntp_distributed.sh 5 2 pikv
 Detected 4 GPUs
 Starting distributed training with:
   - GPUs: 4

@@ -1,6 +1,6 @@
 # PiKV core dependencies (2026)
 # Install: pip install -r requirements.txt && pip install -e .
-# GPU PyTorch: prefer conda/pip wheels from pytorch.org (see install_pikv.sh / environment.yml)
+# GPU PyTorch: prefer conda/pip wheels from pytorch.org (see scripts/install_pikv.sh / environment.yml)
 
 # --- Deep learning ---
 torch>=2.2.0,<2.7

@@ -1,37 +1,21 @@
 #!/usr/bin/env bash
 # Build PiKV-FPGA: C host, RTL sim, Vivado project / bitstream
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT/core/fpga"
 
 export PIKV_PART="${PIKV_PART:-xcu55c-fsvh2892-2L-e}"
 export PIKV_JOBS="${PIKV_JOBS:-8}"
 
 case "${1:-all}" in
-  host)
-    make host
-    ;;
-  sim)
-    make sim
-    ;;
-  sim-soc)
-    make sim-soc
-    ;;
-  test)
-    make test
-    ;;
-  vivado)
-    make vivado
-    ;;
-  bitstream)
-    make bitstream
-    ;;
-  bd)
-    make bd
-    ;;
-  clean)
-    make clean
-    ;;
+  host) make host ;;
+  sim) make sim ;;
+  sim-soc) make sim-soc ;;
+  test) make test ;;
+  vivado) make vivado ;;
+  bitstream) make bitstream ;;
+  bd) make bd ;;
+  clean) make clean ;;
   all)
     make host
     if command -v iverilog >/dev/null 2>&1; then

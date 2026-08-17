@@ -1,6 +1,6 @@
 # PiKV pip dependencies excluding PyTorch (use with conda CUDA wheels).
 # Full stack (pip-only): requirements.txt
-# Conda GPU:     environment.yml / install_pikv.sh
+# Conda GPU:     environment.yml / scripts/install_pikv.sh
 
 transformers>=4.40.0
 datasets>=2.19.0

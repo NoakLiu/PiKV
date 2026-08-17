@@ -39,9 +39,9 @@ Use `pikv_cxl_mem_model.v` as AXI slave (see `tb/tb_pikv_soc.v`).
 
 ```bash
 export PIKV_PART=xcu55c-fsvh2892-2L-e
-./build_fpga.sh vivado      # create project
-./build_fpga.sh bitstream   # synth + impl + .bit
-./build_fpga.sh bd          # optional XDMA block design
+./scripts/build_fpga.sh vivado      # create project
+./scripts/build_fpga.sh bitstream   # synth + impl + .bit
+./scripts/build_fpga.sh bd          # optional XDMA block design
 ```
 
 ## Program bitstream (U55C)

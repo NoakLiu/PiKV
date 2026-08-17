@@ -17,7 +17,7 @@ def load_cuda_library():
     if not os.path.exists(lib_path):
         raise FileNotFoundError(
             f"CUDA library not found at {lib_path}. "
-            "Please build the library first using 'make' in the cuda directory."
+            "Please build the library first: ./scripts/build_cuda.sh release"
         )
     
     try:

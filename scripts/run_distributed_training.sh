@@ -1,9 +1,11 @@
-#!/bin/bash
-
+#!/usr/bin/env bash
 # PiKV Distributed Training Scripts
-# This script provides easy commands to run different distributed training scenarios
+# Usage: ./scripts/run_distributed_training.sh basic|moe|deepspeed-zero3|...
 
-set -e
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
 
 # Default parameters
 NPROC_PER_NODE=4

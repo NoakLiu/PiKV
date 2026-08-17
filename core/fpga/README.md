@@ -73,7 +73,7 @@ SmartNIC offload claim and \(T_{\mathrm{full}}\) for CXL body gather.
 
 ### On-silicon measurement checklist
 
-1. Program bitstream: `./build_fpga.sh bitstream` then `xbutil program -d <bdf> -p <bit>`
+1. Program bitstream: `./scripts/build_fpga.sh bitstream` then `xbutil program -d <bdf> -p <bit>`
 2. Record CXL/HBM effective BW with vendor counters / `perf` / XDMA throughput tests
 3. Replace `mem_bandwidth_gbps` / PCIe BW in the report with measured values
 4. Re-run `python -m core.fpga.benchmark_hw --json` and archive JSON with the paper tables
@@ -109,11 +109,11 @@ config.py        FPGAConfig, BRAM budget, latency model
 ## 6. Build
 
 ```bash
-./build_fpga.sh all          # C lib + RTL sim + test
-./build_fpga.sh sim-soc      # AXI-Lite + CXL mem model sim
-./build_fpga.sh vivado       # Create Vivado project (pikv_soc_top)
-./build_fpga.sh bitstream    # Synth + impl + .bit (needs Vivado + license)
-./build_fpga.sh bd           # Optional XDMA block design
+./scripts/build_fpga.sh all          # C lib + RTL sim + test
+./scripts/build_fpga.sh sim-soc      # AXI-Lite + CXL mem model sim
+./scripts/build_fpga.sh vivado       # Create Vivado project (pikv_soc_top)
+./scripts/build_fpga.sh bitstream    # Synth + impl + .bit (needs Vivado + license)
+./scripts/build_fpga.sh bd           # Optional XDMA block design
 ```
 
 Env:
@@ -146,5 +146,5 @@ See [vivado/ip/README.md](vivado/ip/README.md) for:
 
 ```bash
 brew install icarus-verilog   # macOS
-./build_fpga.sh sim-soc
+./scripts/build_fpga.sh sim-soc
 ```

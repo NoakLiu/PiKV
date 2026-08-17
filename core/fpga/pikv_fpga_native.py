@@ -24,7 +24,7 @@ def load_native_library():
     path = _lib_path()
     if not os.path.exists(path):
         raise FileNotFoundError(
-            f"libpikv_fpga.so not found at {path}. Run: ./build_fpga.sh host"
+            f"libpikv_fpga.so not found at {path}. Run: ./scripts/build_fpga.sh host"
         )
     _LIB = ctypes.CDLL(path)
     _LIB.pikv_fpga_open.argtypes = [ctypes.c_void_p]

@@ -43,7 +43,7 @@
 | **Fused MoE Training** | 🆕 | LAER-MoE (FSEP) + MoEBlaze + FSMoE (`create_fused_moe_training`) |
 | vLLM integration | ✅ | Async server, KV-centric inference |
 | **Eval data pipeline** | 🆕 | root `data/` — `download_data` + DataLoader → ablation / NTP eval (`prompts_eval.txt`) |
-| **PiKV-FPGA** | 🆕 | RTL + AXI-Lite + CXL DMA + Vivado bitstream (`./build_fpga.sh bitstream`) |
+| **PiKV-FPGA** | 🆕 | RTL + AXI-Lite + CXL DMA + Vivado bitstream (`./scripts/build_fpga.sh bitstream`) |
 
 ---
 
@@ -469,13 +469,13 @@ torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --enable_moe 
 ### **Training Script**
 ```bash
 # Make script executable
-chmod +x examples/run_distributed_training.sh
+chmod +x scripts/run_distributed_training.sh
 
 # Run different training modes
-./examples/run_distributed_training.sh basic
-./examples/run_distributed_training.sh deepspeed-zero3
-./examples/run_distributed_training.sh moe
-./examples/run_distributed_training.sh compare
+./scripts/run_distributed_training.sh basic
+./scripts/run_distributed_training.sh deepspeed-zero3
+./scripts/run_distributed_training.sh moe
+./scripts/run_distributed_training.sh compare
 ```
 
 ## FPGA Hardware-Aware Offload
@@ -545,14 +545,14 @@ core/fpga/
 
 ```bash
 # C host + RTL sim (AXI + CXL mem model)
-./build_fpga.sh all
-./build_fpga.sh sim-soc
+./scripts/build_fpga.sh all
+./scripts/build_fpga.sh sim-soc
 
 # Vivado project + bitstream (Alveo U55C default)
 export PIKV_PART=xcu55c-fsvh2892-2L-e
-./build_fpga.sh vivado
-./build_fpga.sh bitstream      # → vivado/project/pikv_fpga.runs/impl_1/*.bit
-./build_fpga.sh bd             # optional XDMA block design
+./scripts/build_fpga.sh vivado
+./scripts/build_fpga.sh bitstream      # → vivado/project/pikv_fpga.runs/impl_1/*.bit
+./scripts/build_fpga.sh bd             # optional XDMA block design
 
 # Program card
 xbutil program --device <BDF> --base vivado/project/pikv_fpga.runs/impl_1/*.bit
@@ -614,9 +614,9 @@ git clone https://github.com/NoakLiu/PiKV.git
 cd PiKV
 
 # Recommended: one-shot conda/venv setup (2026)
-chmod +x install_pikv.sh
-./install_pikv.sh
-# or: USE_VENV=1 ./install_pikv.sh
+chmod +x scripts/*.sh
+./scripts/install_pikv.sh
+# or: USE_VENV=1 ./scripts/install_pikv.sh
 # or: conda env create -f environment.yml && conda activate pikv
 
 # Manual install
@@ -633,16 +633,16 @@ For maximum performance, install custom CUDA kernels:
 
 ```bash
 # Make installation script executable
-chmod +x build_cuda.sh
+chmod +x scripts/build_cuda.sh
 
-# Build CUDA kernels
-./build_cuda.sh
+# Build CUDA kernels (routing + full compression + scheduling)
+./scripts/build_cuda.sh release
 
 # Build and test
-./build_cuda.sh test
+./scripts/build_cuda.sh test
 
 # Install to system
-./build_cuda.sh install
+./scripts/build_cuda.sh install
 ```
 
 ### Key Dependencies
@@ -650,7 +650,7 @@ chmod +x build_cuda.sh
 Core stack: `requirements.txt` / `environment.yml`. Optional extras:
 
 ```bash
-xWITH_VLLM=1 WITH_DEEPSPEED=1 ./install_pikv.sh
+WITH_VLLM=1 WITH_DEEPSPEED=1 ./scripts/install_pikv.sh
 # or: pip install -e ".[vllm,deepspeed,peft]"
 ```
 
@@ -691,7 +691,7 @@ torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --zero_stage 
 torchrun --nproc_per_node=4 examples/deepspeed_training_example.py --enable_moe --zero_stage 3
 
 # Easy training script
-./examples/run_distributed_training.sh deepspeed-zero3
+./scripts/run_distributed_training.sh deepspeed-zero3
 
 # FPGA offload (software simulation)
 python examples/fpga_offload_example.py
@@ -949,15 +949,17 @@ compressed_keys, compressed_values = compressor(keys, values, importance)
 
 ```bash
 # Build CUDA kernels with different optimization levels
-./build_cuda.sh debug      # Debug build with symbols
-./build_cuda.sh release    # Release build with full optimization
-./build_cuda.sh profile    # Profile build with line info
+./scripts/build_cuda.sh debug      # Debug build with symbols
+./scripts/build_cuda.sh release    # Release + full compression (LoRA/Quant/Pyramid/SVD/Hybrid)
+./scripts/build_cuda.sh profile    # Profile build with line info
+./scripts/build_cuda.sh compression  # alias of release (full compression suite)
 
 # Run tests
-./build_cuda.sh test
+./scripts/build_cuda.sh test
+./scripts/build_cuda.sh test-py
 
 # Install to system
-./build_cuda.sh install
+./scripts/build_cuda.sh install
 ```
 
 ## Benchmarks
@@ -1053,7 +1055,7 @@ torchrun --nproc_per_node=2 examples/distributed_training_example.py --mode basi
 torchrun --nproc_per_node=2 examples/deepspeed_training_example.py --zero_stage 1 --steps_per_epoch 10
 
 # Run comprehensive training comparison
-./examples/run_distributed_training.sh compare
+./scripts/run_distributed_training.sh compare
 ```
 
 ### Building CUDA Extensions

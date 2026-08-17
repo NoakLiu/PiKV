@@ -2,21 +2,19 @@
 # Install PiKV conda/venv + dependencies (updated 2026).
 #
 # Usage:
-#   ./install_pikv.sh                 # conda env "pikv", CUDA 12.4 wheels via conda
-#   ENV_NAME=pikv311 ./install_pikv.sh
-#   USE_VENV=1 ./install_pikv.sh      # python -m venv .venv instead of conda
-#   SKIP_TORCH=1 ./install_pikv.sh    # only pip deps + editable install
-#   WITH_VLLM=1 ./install_pikv.sh     # also pip install vllm
-#   WITH_DEEPSPEED=1 ./install_pikv.sh
+#   ./scripts/install_pikv.sh
+#   ENV_NAME=pikv311 ./scripts/install_pikv.sh
+#   USE_VENV=1 ./scripts/install_pikv.sh
+#   SKIP_TORCH=1 ./scripts/install_pikv.sh
+#   WITH_VLLM=1 WITH_DEEPSPEED=1 ./scripts/install_pikv.sh
 #
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 ENV_NAME="${ENV_NAME:-pikv}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
-# conda pytorch-cuda build; override e.g. PYTORCH_CUDA=12.1
 PYTORCH_CUDA="${PYTORCH_CUDA:-12.4}"
 USE_VENV="${USE_VENV:-0}"
 SKIP_TORCH="${SKIP_TORCH:-0}"
@@ -48,7 +46,6 @@ if [[ "$USE_VENV" == "1" ]]; then
   python -m pip install -U pip setuptools wheel
   if [[ "$SKIP_TORCH" != "1" ]]; then
     echo "==> Installing PyTorch (pip CUDA index; override if CPU-only)..."
-    # Default: CUDA 12.4 wheels from pytorch.org
     pip install torch torchvision torchaudio \
       --index-url "https://download.pytorch.org/whl/cu124" \
       || pip install torch torchvision torchaudio
@@ -83,7 +80,6 @@ else
 fi
 
 echo "==> Installing Python deps..."
-# Prefer requirements-conda.txt after CUDA torch so pip does not replace GPU wheels
 if [[ "$SKIP_TORCH" != "1" ]] && [[ -f "$ROOT/requirements-conda.txt" ]]; then
   pip install -r "$ROOT/requirements-conda.txt"
 else
@@ -126,6 +122,7 @@ if [[ "$USE_VENV" == "1" ]]; then
 else
   echo "  Activate:  conda activate $ENV_NAME"
 fi
+echo "  CUDA:      ./scripts/build_cuda.sh release"
 echo "  Data:      python -m data.download_data"
 echo "  Eval:      python -m downstream_tasks.eval.eval_with_data --max-prompts 32"
 echo "  Ablation:  python -m downstream_tasks.eval.ablation_study --preset factor --from-data"
