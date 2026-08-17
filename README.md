@@ -66,6 +66,7 @@
 - [Benchmarks](#-benchmarks)
 - [Development](#️-development)
 - [Citation](#-citation)
+- [License](#-license)
 
 ## Overview
 
@@ -1104,6 +1105,10 @@ If you use PiKV in your research, please cite our work:
       archivePrefix={arXiv}
 }
 ```
+
+## License
+
+Apache License 2.0.
 
 ---
 
