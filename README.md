@@ -14,7 +14,8 @@
 
 </div>
 
-- 🔥🔥🔥 08/16/2026 PiKV fuses **LAER-MoE** (FSEP + load-adaptive re-layout), **MoEBlaze** (activation/weight pipelines), and **FSMoE** (elastic route/comm/compute) into our training stack — see [Fused MoE Training Systems](#-fused-moe-training-systems-laer--moeblaze--fsmoe).
+- 🔥🔥🔥 10/20/2026 PiKV adds **FabricMoE** (our new method) — fabric-aware expert routing for multi-FPGA clusters (hardware-conditioned router + differentiable fabric model + adaptive duals) — see [Fused MoE Training Systems](#-fused-moe-training-systems-laer--moeblaze--fsmoe--fabricmoe).
+- 🔥🔥🔥 08/16/2026 PiKV fuses **LAER-MoE** (FSEP + load-adaptive re-layout), **MoEBlaze** (activation/weight pipelines), and **FSMoE** (elastic route/comm/compute) into our training stack — see [Fused MoE Training Systems](#-fused-moe-training-systems-laer--moeblaze--fsmoe--fabricmoe).
 - 🔥🔥🔥 07/21/2026 PiKV adds a shared **Data Download + Eval Dataloader** (`data/`): WikiText download, frozen `prompts_eval.txt`, and hooks into ablation / NTP evaluation.
 - 🔥🔥🔥 03/24/2026 PiKV adds **PiKV-FPGA** with **Verilog RTL** + **C host** (`libpikv_fpga.so`): MMIO `PiKV-CTRL`, `ScoreFuse`, `Codecρ`, page table `D+`, scheduler.
 - 🔥🔥🔥 10/18/2025 PiKV now supports DeepSpeed Integration with ZeRO-1/2/3 optimization, CPU offloading, and MoE expert parallelism for enterprise-grade distributed training.
@@ -40,7 +41,7 @@
 | PiKV Scheduling | ✅ | H2O, QUEST, AdaKV, Duo, Belady-Approx, Hazard-LRU |
 | CUDA kernels | ✅ | Routing / compression / scheduling |
 | DeepSpeed + DDP | ✅ | ZeRO-1/2/3, MoE expert parallelism |
-| **Fused MoE Training** | 🆕 | LAER-MoE (FSEP) + MoEBlaze + FSMoE (`create_fused_moe_training`) |
+| **Fused MoE Training** | 🆕 | LAER-MoE (FSEP) + MoEBlaze + FSMoE + FabricMoE (`create_fused_moe_training`) |
 | vLLM integration | ✅ | Async server, KV-centric inference |
 | **Eval data pipeline** | 🆕 | root `data/` — `download_data` + DataLoader → ablation / NTP eval (`prompts_eval.txt`) |
 | **PiKV-FPGA** | 🆕 | RTL + AXI-Lite + CXL DMA + Vivado bitstream (`./scripts/build_fpga.sh bitstream`) |
@@ -101,7 +102,7 @@ PiKV is a cutting-edge **Parallel Distributed Key-Value Cache Design** that revo
 | **KVCache-Centric System** | Advanced memory management and scheduling optimizations | PagedKVCache, DistributedKVCachePool, CacheAwarePrefillScheduler, LoadBalanceDecodingScheduler |
 | **vLLM Integration** | Seamless integration with vLLM inference engine | PiKVvLLMEngine, PiKVvLLMServer, PiKVvLLMConfig |
 | **DeepSpeed Integration** | Enterprise-grade distributed training with ZeRO optimization | PiKVDeepSpeedManager, ZeRO-1/2/3, CPU offloading, MoE expert parallelism |
-| **Fused MoE Training** | Paper-fused sparse MoE training systems | LAER-MoE FSEP + re-layout, MoEBlaze pipelines, FSMoE elastic stages |
+| **Fused MoE Training** | Paper-fused sparse MoE training systems | LAER-MoE FSEP + re-layout, MoEBlaze pipelines, FSMoE elastic stages, FabricMoE fabric-aware routing |
 | **Distributed Training** | Enhanced distributed training with error handling and monitoring | DistributedPiKVManager, DistributedPiKVMoE, Performance monitoring, Advanced checkpointing |
 | **PiKV Compression** | Unified compression with multiple strategies | LoRACompressor, PyramidCompressor, SVDCompressor, QuantizedCompressor, FastVCompressor, PiKVCompressor |
 | **PiKV Cache Scheduling** | Dynamic cache management policies | H2OScheduler, StreamingLLMScheduler, QUESTScheduler, FlexGenScheduler, LRUScheduler, LRUPlusScheduler, AdaKVScheduler, DuoAttentionScheduler |
@@ -408,15 +409,16 @@ print(f"Memory usage: {metrics['memory_usage']:.2f}GB")
 print(f"Throughput: {metrics['throughput']:.2f} elem/s")
 ```
 
-## Fused MoE Training Systems (LAER · MoEBlaze · FSMoE)
+## Fused MoE Training Systems (LAER · MoEBlaze · FSMoE · FabricMoE)
 
-PiKV now ships a **fused training stack** that implements the core system designs from three recent MoE-training papers and can enable them individually or together:
+PiKV now ships a **fused training stack** that implements the core system designs from four recent MoE-training papers and can enable them individually or together:
 
 | System | Venue | What we implement |
 |--------|-------|-------------------|
 | **LAER-MoE** | ASPLOS 2026 | **Fully Sharded Expert Parallel (FSEP)** — restore expert weights at expert granularity via All-to-All / all_gather; **load-adaptive re-layout planner** remaps expert compute homes under token skew |
 | **MoEBlaze** | MLSys 2026 | Break the MoE **memory wall**: selective **activation cache pipeline** (GPU double-buffer + CPU spill) and **expert-weight access pipeline** (prefetch / stage next experts while computing) |
 | **FSMoE** | ASPLOS 2025 | **Elastic multi-stage** training — decouple Token Routing ↔ Communication ↔ Expert Compute; adapt stage worker budgets to backlog so fixed parallel layouts stop wasting FLOPs |
+| **FabricMoE** | our new method | **Fabric-aware expert routing** for multi-FPGA clusters — a **Hardware-Conditioned Router** (fabric-graph GNN + on-chip telemetry GRU) replaces hand-tuned `s − λ·C_hw` penalties; a **Differentiable Fabric Model** calibrated against on-chip counters makes latency/bandwidth/congestion differentiable; **adaptive duals** enforce explicit latency/bandwidth/utilization budgets; topology-induced hierarchy keeps tokens on-device; affinity-driven placement is coupled to routing |
 
 ### Quick start
 
@@ -426,9 +428,10 @@ from core.distributed import (
     create_laer_moe,
     create_moeblaze,
     create_fsmoe,
+    create_fabric_moe,
 )
 
-# All three fused in one model
+# All four fused in one model (FabricMoE replaces the gate with a fabric-aware router)
 model = create_fused_moe_training(
     hidden_size=512,
     num_experts=8,
@@ -436,22 +439,70 @@ model = create_fused_moe_training(
     enable_laer=True,
     enable_moeblaze=True,
     enable_fsmoe=True,
+    enable_fabric=True,        # FabricMoE: HCR + DFM + adaptive duals over G_H
+    fabric_num_devices=4,
 )
 x = torch.randn(4, 64, 512)
 y = model(x)
-metrics = model.get_metrics()  # FSEP restores, re-layouts, pipeline hits, FSMoE workers
+metrics = model.get_metrics()  # FSEP restores, re-layouts, pipeline hits, FSMoE workers, DFM MAPE, duals
 
 # Or use each paper stack alone
 laer = create_laer_moe(hidden_size=512, num_experts=8)
 blaze = create_moeblaze(hidden_size=512, num_experts=8)
 fs = create_fsmoe(hidden_size=512, num_experts=8)
+fabric = create_fabric_moe(hidden_size=512, num_experts=16, num_devices=4)  # FabricMoE standalone
 ```
 
 ```bash
 PYTHONPATH=. python examples/fused_moe_training_example.py
+PYTHONPATH=. python examples/fabric_moe_example.py
 ```
 
-**Modules:** `core/distributed/laer_moe.py`, `moeblaze.py`, `fsmoe.py`, `fused_moe_training.py`.
+**Modules:** `core/distributed/laer_moe.py`, `moeblaze.py`, `fsmoe.py`, `fabric_moe.py`, `fused_moe_training.py`.
+
+### FabricMoE: fabric-aware routing on multi-FPGA clusters
+
+FabricMoE supplies the **physical fabric as an input to MoE routing during training**. On multi-SLR FPGAs and spatial accelerators, interconnect locality — not arithmetic throughput — determines latency, so a router trained without topology keeps placing probability mass on experts across distant devices. FabricMoE closes the loop with three mechanisms plus a coupled placement solve:
+
+| Mechanism | What it does |
+|----------|--------------|
+| **Hardware-Conditioned Router (HCR)** | Scores experts from a fabric-graph GNN encoder (`z_H_e`) and an on-chip telemetry GRU (`c_t = GRU(S_H)`), replacing `s − λ·C_hw` with a learned function of the fabric. Topology-induced hierarchy factors `P(e|x) = P(r|x, G_H)·P(e|x, r, G_H)` so most tokens stay on-device (`E[H_hop] = P(local)·H_in + (1−P(local))·H_out`). |
+| **Differentiable Fabric Model (DFM)** | A small graph surrogate `F_ψ(R, P, G_H) → (T̂, B̂, Ĉ, Û)` with M/M/1-style inflation `d_l = d_l^0/(1−u_l)`, calibrated against on-chip performance counters (Huber + Spearman rank term). Gradients of latency/congestion reach the router through the soft routing matrix `R`. |
+| **Constraint-driven training** | Adaptive duals `μ_k ← [μ_k + η(g_k − c_k)]_+` on explicit latency, bandwidth, and link-utilization budgets replace a frozen `λ`; duals decay when a constraint stays slack so the router recovers model quality. |
+| **Affinity-driven placement** | Co-activation `A_ij` drives `argmin_P Σ A_ij D(P_i, P_j)` (greedy pack + pair swaps, warm-started). Coupled to HCR + DFM this is a fixed point: placement changes `z_H_e`, routing reshapes `A`, both move under the dualized objective. |
+
+```python
+from core.distributed import FabricGraph, create_fabric_moe
+
+# Build a multi-FPGA mesh fabric G_H (or use single_slr / hierarchical_ring)
+fabric = FabricGraph.multi_fpga_mesh(num_experts=64, num_regions=8, num_devices=16)
+
+model = create_fabric_moe(
+    hidden_size=512, num_experts=64, top_k=2,
+    num_regions=8, num_devices=16, num_layers=2,
+    fabric=fabric,
+    latency_budget=80.0,      # T_max (cycles, per-token dispatch)
+    traffic_budget=0.70,      # B_max (mean link utilization fraction)
+    congestion_budget=0.85,  # U_max (P99 link utilization fraction)
+)
+
+# Constrained training: L = L_LM + Σ_k μ_k [g_k(R, G_H) − c_k]_+
+metrics = model.train_step(batch, optimizer=opt)
+# metrics["layers"][0]["duals"]["mu"]   -> adaptive multipliers per constraint
+# metrics["layers"][0]["dfm"]           -> latency/traffic MAPE, Spearman ρ
+# metrics["layers"][0]["placer"]        -> co-activation placement + swaps
+
+# Hard top-k decode with fallback to 2nd-best region when Q_r > Q_max
+model.eval()
+out = model.decode(tokens)
+
+# Periodic DFM recalibration against on-chip counters Y_FPGA (every K_cal=200)
+model.layers[0].calibrate({"latency": Y_T, "traffic": Y_B, "congestion": Y_C})
+```
+
+**Fabric-graph swap.** Training the same model on two different fabrics `G_H` and only swapping the fabric graph yields a Jensen–Shannon divergence between the two learned routing distributions — *which experts specialize depends on the fabric used during training*, and a later placement pass cannot reproduce that specialization. See `run_fabric_swap` in `examples/fabric_moe_example.py`.
+
+The spatial datapath (8-stage II=1 scoring pipeline, region-local INT8 expert PEs, credit-based mesh over 8–32 FPGAs) is the hardware side; `core/distributed/fabric_moe.py` is the training-side counterpart. For the HCR ↔ PiKV-FPGA engine mapping, see [core/fpga/README.md](core/fpga/README.md#fabricmoe-hcr--fpga-engine-mapping).
 
 ## Distributed Training
 

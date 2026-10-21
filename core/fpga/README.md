@@ -148,3 +148,32 @@ See [vivado/ip/README.md](vivado/ip/README.md) for:
 brew install icarus-verilog   # macOS
 ./scripts/build_fpga.sh sim-soc
 ```
+
+## 10. FabricMoE HCR ↔ FPGA engine mapping
+
+`core/distributed/fabric_moe.py` is the **training-side** counterpart of the
+FabricMoE spatial datapath (our new method). The learned **Hardware-Conditioned Router
+(HCR)** policy `π_θ(e | x, G_H, S_H)` is what the FPGA scoring pipeline executes
+at decode time; the table below maps each HCR stage to the existing PiKV-FPGA
+engines so the trained router can deploy onto the U55C tile.
+
+| HCR stage | RTL / engine in this repo | Role |
+|---------------------------|--------------------------|------|
+| S0–S3: INT8 MAC cascade (`W_proj` in BRAM) | `ScoreFuseEngine` MAC lanes | Project `h_t` → region logits |
+| S4: inject `z_H_e ∥ c_t` | `z_H` ROM + telemetry GRU | Fabric-graph embedding + on-chip telemetry state |
+| S5–S6: score MLP + softmax over `R=8` | `ScoreFuseEngine` + radix Top-k | `s_{t,e} = f_θ(h_t, z_H_e, c_t)`, `P(r\|x, G_H)` |
+| S7: Top-k dest → region[3:0] expert[7:0] k[3:0] | radix Top-k in `ScoreFuse` | Hard top-k + fallback to 2nd-best region |
+| Credit mesh NoC + telemetry | `pikv_top` NoC + monitors | `u_l ← λ u_l + (1−λ) b_l/(C_l Δt)`, counters → `Y_FPGA` |
+| Region-local INT8 expert PEs | expert PE array | `L_crit = 6` cyc, HBM-resident adds `L_HBM = 18` |
+
+**Deployment flow:**
+1. Train `π_θ` with `create_fabric_moe(...)` on the host (HCR + DFM + adaptive duals).
+2. Export `θ`, the fabric-graph embeddings `z_H_e` (re-encoded only when `G_H`/`P` change), and the calibrated DFM `ψ`.
+3. Load `z_H_e` into the `z_H` ROM and `θ` into `ScoreFuse`; the FPGA runs the
+   8-stage II=1 pipeline at 300 MHz and emits `Y_FPGA` counters every 1024 cycles.
+4. Every `K_cal = 200` steps, `model.layers[0].calibrate(Y_FPGA)` refits `ψ` on the host.
+
+The dispatch latency model `L_disp = L_DMA + L_HCR + L_NoC + L_PE =
+8 + 8 + 2·H_hop + 6` is implemented in `DifferentiableFabricModel.predict` and
+validated against the cycle-accurate traces in `benchmark_hw.py`.
+

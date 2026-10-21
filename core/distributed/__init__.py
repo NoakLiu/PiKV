@@ -22,6 +22,14 @@ from .fused_moe_training import (
     create_laer_moe,
     create_moeblaze,
 )
+from .fabric_moe import (
+    FabricGraph,
+    FabricMoEConfig,
+    FabricMoELayer,
+    FabricMoETrainingSystem,
+    create_fabric_moe,
+    create_fabric_moe_layer,
+)
 
 __version__ = "3.2.0"
 
@@ -38,6 +46,13 @@ __all__ = [
     "LAERMoELayer",
     "MoEBlazeLayer",
     "FSMoELayer",
+    # FabricMoE (fabric-aware routing for multi-FPGA clusters)
+    "FabricGraph",
+    "FabricMoEConfig",
+    "FabricMoELayer",
+    "FabricMoETrainingSystem",
+    "create_fabric_moe",
+    "create_fabric_moe_layer",
     # Lazy: Distributed PiKV
     "distributed_context",
     "DistributedPerformanceMonitor",
